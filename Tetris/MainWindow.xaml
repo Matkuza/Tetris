@@ -7,61 +7,152 @@
         Title="Tetris"
         WindowState="Maximized"
         WindowStyle="None"
-        Background="#0F172A"
-        KeyDown="Window_KeyDown">
-    <Grid Margin="24">
+        Background="#050816"
+        KeyDown="Window_KeyDown"
+        SizeChanged="Window_SizeChanged">
+    <Grid x:Name="RootGrid" Margin="14">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="Auto" />
-            <ColumnDefinition Width="32" />
-            <ColumnDefinition Width="280" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="320" />
         </Grid.ColumnDefinitions>
 
         <Border Grid.Column="0"
-                CornerRadius="12"
-                BorderBrush="#475569"
+                x:Name="BoardBorder"
+                CornerRadius="16"
+                BorderBrush="#3A4A6A"
                 BorderThickness="2"
                 Background="#020617"
-                Padding="8">
-            <Canvas x:Name="GameCanvas"
-                    Width="360"
-                    Height="720" />
+                Margin="10"
+                VerticalAlignment="Stretch"
+                HorizontalAlignment="Center">
+            <Grid>
+                <Canvas x:Name="GameCanvas" />
+                <Canvas x:Name="EffectCanvas" IsHitTestVisible="False" />
+            </Grid>
         </Border>
 
-        <StackPanel Grid.Column="2" VerticalAlignment="Top">
+        <StackPanel Grid.Column="1" Margin="18,10,10,10" VerticalAlignment="Stretch">
             <TextBlock Text="TETRIS"
                        Foreground="#E2E8F0"
                        FontSize="44"
                        FontWeight="Bold"
-                       Margin="0,0,0,20" />
+                       Margin="0,0,0,12" />
 
-            <Border CornerRadius="10" BorderBrush="#334155" BorderThickness="2" Background="#0B1224" Padding="16" Margin="0,0,0,14">
+            <Border CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="16" Margin="0,0,0,12">
                 <StackPanel>
-                    <TextBlock Text="WYNIK" Foreground="#94A3B8" FontSize="14" />
+                    <TextBlock Text="NICK" Foreground="#94A3B8" FontSize="13" />
+                    <TextBlock x:Name="PlayerNameText" Text="Gracz" Foreground="#F8FAFC" FontSize="26" FontWeight="SemiBold" />
+                </StackPanel>
+            </Border>
+
+            <Border CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="16" Margin="0,0,0,12">
+                <StackPanel>
+                    <TextBlock Text="WYNIK" Foreground="#94A3B8" FontSize="13" />
                     <TextBlock x:Name="ScoreText" Text="0" Foreground="#F8FAFC" FontSize="32" FontWeight="SemiBold" />
                 </StackPanel>
             </Border>
 
-            <Border CornerRadius="10" BorderBrush="#334155" BorderThickness="2" Background="#0B1224" Padding="16" Margin="0,0,0,14">
+            <Border CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="16" Margin="0,0,0,12">
                 <StackPanel>
-                    <TextBlock Text="POZIOM" Foreground="#94A3B8" FontSize="14" />
+                    <TextBlock Text="POZIOM" Foreground="#94A3B8" FontSize="13" />
                     <TextBlock x:Name="LevelText" Text="1" Foreground="#F8FAFC" FontSize="30" FontWeight="SemiBold" />
                 </StackPanel>
             </Border>
 
-            <Border CornerRadius="10" BorderBrush="#334155" BorderThickness="2" Background="#0B1224" Padding="16" Margin="0,0,0,14">
+            <Border CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="16" Margin="0,0,0,12">
                 <StackPanel>
-                    <TextBlock Text="NASTĘPNY" Foreground="#94A3B8" FontSize="14" Margin="0,0,0,8" />
-                    <Canvas x:Name="NextPieceCanvas" Width="120" Height="120" />
+                    <TextBlock Text="NASTĘPNY KLOCEK" Foreground="#94A3B8" FontSize="13" Margin="0,0,0,8" />
+                    <Canvas x:Name="NextPieceCanvas" Width="130" Height="120" />
                 </StackPanel>
             </Border>
 
-            <TextBlock x:Name="StatusText"
-                       Text="Strzałki: ruch/obrót • Spacja: zrzut • Esc: zamknij"
-                       Foreground="#94A3B8"
-                       TextWrapping="Wrap"
-                       FontSize="15"
-                       MaxWidth="260"
-                       Margin="0,6,0,0" />
+            <Border CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="14">
+                <TextBlock x:Name="StatusText"
+                           Text="Strzałki: ruch/obrót • Spacja: szybki zrzut • Esc: zamknij"
+                           Foreground="#A9B7CB"
+                           TextWrapping="Wrap"
+                           FontSize="14" />
+            </Border>
         </StackPanel>
+
+        <Grid x:Name="StartMenuOverlay" Grid.ColumnSpan="2" Background="#CC020617">
+            <Border Width="560"
+                    Padding="26"
+                    CornerRadius="18"
+                    BorderBrush="#406089"
+                    BorderThickness="2"
+                    Background="#0A1224"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
+                <StackPanel>
+                    <TextBlock Text="START GRY"
+                               Foreground="#F8FAFC"
+                               FontSize="34"
+                               FontWeight="Bold"
+                               Margin="0,0,0,10" />
+                    <TextBlock Text="Ustaw nick i opcje"
+                               Foreground="#94A3B8"
+                               FontSize="16"
+                               Margin="0,0,0,18" />
+
+                    <TextBlock Text="Nick" Foreground="#CBD5E1" />
+                    <TextBox x:Name="NickTextBox"
+                             Text="Gracz"
+                             MaxLength="20"
+                             Margin="0,6,0,12"
+                             Padding="8"
+                             FontSize="15"
+                             Background="#0F1C34"
+                             Foreground="#F8FAFC"
+                             BorderBrush="#3C577C" />
+
+                    <TextBlock Text="Poziom startowy" Foreground="#CBD5E1" />
+                    <ComboBox x:Name="StartLevelComboBox"
+                              SelectedIndex="0"
+                              Margin="0,6,0,12"
+                              Padding="6"
+                              FontSize="15"
+                              Background="#0F1C34"
+                              Foreground="#F8FAFC"
+                              BorderBrush="#3C577C">
+                        <ComboBoxItem Content="1 - Wolny" />
+                        <ComboBoxItem Content="2 - Normalny" />
+                        <ComboBoxItem Content="3 - Szybki" />
+                    </ComboBox>
+
+                    <TextBlock Text="Tryb kolorów" Foreground="#CBD5E1" />
+                    <ComboBox x:Name="ThemeComboBox"
+                              SelectedIndex="0"
+                              Margin="0,6,0,18"
+                              Padding="6"
+                              FontSize="15"
+                              Background="#0F1C34"
+                              Foreground="#F8FAFC"
+                              BorderBrush="#3C577C">
+                        <ComboBoxItem Content="Neon" />
+                        <ComboBoxItem Content="Pastel" />
+                    </ComboBox>
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Content="Wyjdź"
+                                Click="ExitButton_Click"
+                                Padding="16,8"
+                                Margin="0,0,10,0"
+                                FontSize="14"
+                                Background="#24344F"
+                                Foreground="#F8FAFC"
+                                BorderBrush="#4A648A" />
+                        <Button Content="Start"
+                                Click="StartButton_Click"
+                                Padding="22,8"
+                                FontSize="15"
+                                FontWeight="SemiBold"
+                                Background="#2563EB"
+                                Foreground="White"
+                                BorderBrush="#5B8EFF" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
     </Grid>
 </Window>

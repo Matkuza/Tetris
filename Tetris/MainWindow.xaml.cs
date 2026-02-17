@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 
@@ -11,7 +12,6 @@ public partial class MainWindow : Window
 {
     private const int BoardWidth = 10;
     private const int BoardHeight = 20;
-    private const int CellSize = 36;
 
     private readonly Brush?[,] _board = new Brush?[BoardHeight, BoardWidth];
     private readonly Random _random = new();
@@ -24,44 +24,90 @@ public partial class MainWindow : Window
     private int _score;
     private int _linesCleared;
     private bool _gameOver;
+    private bool _isGameStarted;
+    private int _startLevel;
+    private double _cellSize = 36;
 
-    private static readonly (Point[] shape, Brush color)[] PieceDefinitions =
+    private static readonly Color[] NeonPalette =
     [
-        (new[] { new Point(0, 1), new Point(1, 1), new Point(2, 1), new Point(3, 1) }, Brushes.Cyan),
-        (new[] { new Point(0, 0), new Point(0, 1), new Point(1, 1), new Point(2, 1) }, Brushes.Blue),
-        (new[] { new Point(2, 0), new Point(0, 1), new Point(1, 1), new Point(2, 1) }, Brushes.Orange),
-        (new[] { new Point(1, 0), new Point(2, 0), new Point(1, 1), new Point(2, 1) }, Brushes.Yellow),
-        (new[] { new Point(1, 0), new Point(2, 0), new Point(0, 1), new Point(1, 1) }, Brushes.LimeGreen),
-        (new[] { new Point(1, 0), new Point(0, 1), new Point(1, 1), new Point(2, 1) }, Brushes.MediumPurple),
-        (new[] { new Point(0, 0), new Point(1, 0), new Point(1, 1), new Point(2, 1) }, Brushes.Red)
+        Color.FromRgb(34, 211, 238), Color.FromRgb(59, 130, 246), Color.FromRgb(251, 146, 60),
+        Color.FromRgb(250, 204, 21), Color.FromRgb(74, 222, 128), Color.FromRgb(167, 139, 250),
+        Color.FromRgb(248, 113, 113)
+    ];
+
+    private static readonly Color[] PastelPalette =
+    [
+        Color.FromRgb(125, 211, 252), Color.FromRgb(165, 180, 252), Color.FromRgb(253, 186, 116),
+        Color.FromRgb(253, 224, 71), Color.FromRgb(134, 239, 172), Color.FromRgb(216, 180, 254),
+        Color.FromRgb(252, 165, 165)
+    ];
+
+    private Brush[] _activePaletteBrushes = [];
+
+    private static readonly Point[][] PieceDefinitions =
+    [
+        [new Point(0, 1), new Point(1, 1), new Point(2, 1), new Point(3, 1)],
+        [new Point(0, 0), new Point(0, 1), new Point(1, 1), new Point(2, 1)],
+        [new Point(2, 0), new Point(0, 1), new Point(1, 1), new Point(2, 1)],
+        [new Point(1, 0), new Point(2, 0), new Point(1, 1), new Point(2, 1)],
+        [new Point(1, 0), new Point(2, 0), new Point(0, 1), new Point(1, 1)],
+        [new Point(1, 0), new Point(0, 1), new Point(1, 1), new Point(2, 1)],
+        [new Point(0, 0), new Point(1, 0), new Point(1, 1), new Point(2, 1)]
     ];
 
     public MainWindow()
     {
         InitializeComponent();
-        _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(520) };
+        _timer = new DispatcherTimer();
         _timer.Tick += (_, _) => Tick();
 
-        ResetGame();
+        ApplyTheme();
+        UpdateBoardLayout();
+        Draw();
     }
 
-    private void ResetGame()
+    private void ApplyTheme()
+    {
+        var source = ThemeComboBox.SelectedIndex == 1 ? PastelPalette : NeonPalette;
+        _activePaletteBrushes = source.Select(c => (Brush)new SolidColorBrush(c)).ToArray();
+    }
+
+    private void StartNewGame()
     {
         Array.Clear(_board);
         _score = 0;
         _linesCleared = 0;
         _gameOver = false;
-        _nextPiece = CreateRandomPiece();
+        _isGameStarted = true;
 
+        _startLevel = StartLevelComboBox.SelectedIndex switch
+        {
+            1 => 2,
+            2 => 4,
+            _ => 1
+        };
+
+        var nick = NickTextBox.Text.Trim();
+        PlayerNameText.Text = string.IsNullOrWhiteSpace(nick) ? "Gracz" : nick;
+
+        SetTimerSpeed();
+        _nextPiece = CreateRandomPiece();
         SpawnPiece();
-        _timer.Start();
         UpdateHud();
         Draw();
+        _timer.Start();
+    }
+
+    private void SetTimerSpeed()
+    {
+        var level = _startLevel + (_linesCleared / 8);
+        var speedMs = Math.Max(85, 560 - (level - 1) * 45);
+        _timer.Interval = TimeSpan.FromMilliseconds(speedMs);
     }
 
     private void Tick()
     {
-        if (_gameOver)
+        if (_gameOver || !_isGameStarted)
         {
             return;
         }
@@ -69,7 +115,12 @@ public partial class MainWindow : Window
         if (!TryMove(_currentX, _currentY + 1, _currentPiece.Cells))
         {
             LockPiece();
-            ClearFullLines();
+            var clearedRows = ClearFullLines();
+            if (clearedRows.Count > 0)
+            {
+                AnimateClearedLines(clearedRows);
+            }
+
             SpawnPiece();
         }
 
@@ -95,8 +146,9 @@ public partial class MainWindow : Window
 
     private Tetromino CreateRandomPiece()
     {
-        var (shape, color) = PieceDefinitions[_random.Next(PieceDefinitions.Length)];
-        return new Tetromino(shape.Select(p => new Point(p.X, p.Y)).ToArray(), color);
+        var index = _random.Next(PieceDefinitions.Length);
+        var shape = PieceDefinitions[index].Select(p => new Point(p.X, p.Y)).ToArray();
+        return new Tetromino(shape, _activePaletteBrushes[index], index == 3);
     }
 
     private bool TryMove(int newX, int newY, Point[] cells)
@@ -134,16 +186,12 @@ public partial class MainWindow : Window
 
     private void RotateCurrentPiece()
     {
-        if (_currentPiece.Color == Brushes.Yellow)
+        if (_currentPiece.IsSquare)
         {
             return;
         }
 
-        var rotated = _currentPiece.Cells
-            .Select(p => new Point(2 - p.Y, p.X))
-            .ToArray();
-
-        // prosta "wall kick" - kilka prób przesunięcia po obrocie
+        var rotated = _currentPiece.Cells.Select(p => new Point(2 - p.Y, p.X)).ToArray();
         int[] offsets = [0, -1, 1, -2, 2];
         foreach (var offset in offsets)
         {
@@ -162,11 +210,15 @@ public partial class MainWindow : Window
     {
         while (TryMove(_currentX, _currentY + 1, _currentPiece.Cells))
         {
-            _score += 2;
         }
 
         LockPiece();
-        ClearFullLines();
+        var clearedRows = ClearFullLines();
+        if (clearedRows.Count > 0)
+        {
+            AnimateClearedLines(clearedRows);
+        }
+
         SpawnPiece();
         Draw();
     }
@@ -184,9 +236,9 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ClearFullLines()
+    private List<int> ClearFullLines()
     {
-        var removed = 0;
+        var removedRows = new List<int>();
 
         for (var y = BoardHeight - 1; y >= 0; y--)
         {
@@ -205,7 +257,7 @@ public partial class MainWindow : Window
                 continue;
             }
 
-            removed++;
+            removedRows.Add(y);
             for (var pullY = y; pullY > 0; pullY--)
             {
                 for (var x = 0; x < BoardWidth; x++)
@@ -219,57 +271,114 @@ public partial class MainWindow : Window
                 _board[0, x] = null;
             }
 
-            y++; // ponowne sprawdzenie tego samego wiersza po zsunięciu
+            y++;
         }
 
-        if (removed == 0)
+        if (removedRows.Count == 0)
         {
-            return;
+            return removedRows;
         }
 
-        _linesCleared += removed;
-        _score += removed switch
+        _linesCleared += removedRows.Count;
+        _score += removedRows.Count switch
         {
-            1 => 100,
-            2 => 300,
-            3 => 500,
-            4 => 800,
-            _ => removed * 200
+            1 => 120,
+            2 => 360,
+            3 => 700,
+            4 => 1100,
+            _ => removedRows.Count * 250
         };
 
-        var level = 1 + (_linesCleared / 8);
-        var speedMs = Math.Max(90, 520 - (level - 1) * 40);
-        _timer.Interval = TimeSpan.FromMilliseconds(speedMs);
+        SetTimerSpeed();
         UpdateHud();
+        AnimateScorePulse();
+        return removedRows;
+    }
+
+    private void AnimateScorePulse()
+    {
+        var animation = new DoubleAnimation
+        {
+            From = 32,
+            To = 42,
+            Duration = TimeSpan.FromMilliseconds(170),
+            AutoReverse = true,
+            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+        };
+
+        ScoreText.BeginAnimation(TextBlock.FontSizeProperty, animation);
+    }
+
+    private void AnimateClearedLines(List<int> rows)
+    {
+        EffectCanvas.Children.Clear();
+        foreach (var row in rows)
+        {
+            var glow = new Rectangle
+            {
+                Width = BoardWidth * _cellSize,
+                Height = _cellSize,
+                Fill = new SolidColorBrush(Color.FromArgb(210, 255, 255, 255)),
+                Opacity = 0.9
+            };
+
+            Canvas.SetLeft(glow, 0);
+            Canvas.SetTop(glow, row * _cellSize);
+            EffectCanvas.Children.Add(glow);
+
+            var fade = new DoubleAnimation
+            {
+                From = 0.9,
+                To = 0,
+                Duration = TimeSpan.FromMilliseconds(220)
+            };
+
+            fade.Completed += (_, _) => EffectCanvas.Children.Remove(glow);
+            glow.BeginAnimation(OpacityProperty, fade);
+        }
     }
 
     private void UpdateHud()
     {
-        var level = 1 + (_linesCleared / 8);
+        var level = _startLevel + (_linesCleared / 8);
         ScoreText.Text = _score.ToString();
         LevelText.Text = level.ToString();
 
         if (!_gameOver)
         {
-            StatusText.Text = "Strzałki: ruch/obrót • Spacja: zrzut • Esc: zamknij";
+            StatusText.Text = "Punkty tylko za pełne linie • Strzałki/Spacja • Esc: zamknij";
         }
+    }
+
+    private void UpdateBoardLayout()
+    {
+        var availableHeight = Math.Max(420, RootGrid.ActualHeight - 48);
+        _cellSize = Math.Floor(availableHeight / BoardHeight);
+        var boardWidthPx = _cellSize * BoardWidth;
+        var boardHeightPx = _cellSize * BoardHeight;
+
+        GameCanvas.Width = boardWidthPx;
+        GameCanvas.Height = boardHeightPx;
+        EffectCanvas.Width = boardWidthPx;
+        EffectCanvas.Height = boardHeightPx;
+        BoardBorder.Width = boardWidthPx + 12;
+        BoardBorder.Height = boardHeightPx + 12;
     }
 
     private void Draw()
     {
         GameCanvas.Children.Clear();
 
-        // tło kratki
+        var emptyBrush = new SolidColorBrush(Color.FromRgb(12, 20, 38));
         for (var y = 0; y < BoardHeight; y++)
         {
             for (var x = 0; x < BoardWidth; x++)
             {
-                DrawCell(x, y, _board[y, x] ?? new SolidColorBrush(Color.FromRgb(17, 24, 39)),
-                    _board[y, x] is null ? 0.18 : 1);
+                DrawCell(x, y, _board[y, x] ?? emptyBrush, _board[y, x] is null ? 0.33 : 1);
             }
         }
 
-        if (!_gameOver)
+        if (!_gameOver && _isGameStarted)
         {
             foreach (var cell in _currentPiece.Cells)
             {
@@ -282,8 +391,8 @@ public partial class MainWindow : Window
     {
         var rect = new Rectangle
         {
-            Width = CellSize - 2,
-            Height = CellSize - 2,
+            Width = _cellSize - 2,
+            Height = _cellSize - 2,
             RadiusX = 6,
             RadiusY = 6,
             Fill = brush,
@@ -292,21 +401,22 @@ public partial class MainWindow : Window
             Opacity = opacity
         };
 
-        Canvas.SetLeft(rect, x * CellSize + 1);
-        Canvas.SetTop(rect, y * CellSize + 1);
+        Canvas.SetLeft(rect, x * _cellSize + 1);
+        Canvas.SetTop(rect, y * _cellSize + 1);
         GameCanvas.Children.Add(rect);
     }
 
     private void DrawNextPiece()
     {
         NextPieceCanvas.Children.Clear();
+        const double previewCell = 24;
 
         foreach (var cell in _nextPiece.Cells)
         {
             var rect = new Rectangle
             {
-                Width = 24,
-                Height = 24,
+                Width = previewCell,
+                Height = previewCell,
                 RadiusX = 5,
                 RadiusY = 5,
                 Fill = _nextPiece.Color,
@@ -314,8 +424,8 @@ public partial class MainWindow : Window
                 StrokeThickness = 1
             };
 
-            Canvas.SetLeft(rect, cell.X * 24 + 18);
-            Canvas.SetTop(rect, cell.Y * 24 + 18);
+            Canvas.SetLeft(rect, cell.X * previewCell + 18);
+            Canvas.SetTop(rect, cell.Y * previewCell + 16);
             NextPieceCanvas.Children.Add(rect);
         }
     }
@@ -328,11 +438,21 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (StartMenuOverlay.Visibility == Visibility.Visible)
+        {
+            if (e.Key == Key.Enter)
+            {
+                StartButton_Click(this, new RoutedEventArgs());
+            }
+
+            return;
+        }
+
         if (_gameOver)
         {
             if (e.Key == Key.Enter)
             {
-                ResetGame();
+                StartMenuOverlay.Visibility = Visibility.Visible;
             }
 
             return;
@@ -347,12 +467,7 @@ public partial class MainWindow : Window
                 TryMove(_currentX + 1, _currentY, _currentPiece.Cells);
                 break;
             case Key.Down:
-                if (TryMove(_currentX, _currentY + 1, _currentPiece.Cells))
-                {
-                    _score += 1;
-                    UpdateHud();
-                }
-
+                TryMove(_currentX, _currentY + 1, _currentPiece.Cells);
                 break;
             case Key.Up:
                 RotateCurrentPiece();
@@ -365,5 +480,23 @@ public partial class MainWindow : Window
         Draw();
     }
 
-    private record Tetromino(Point[] Cells, Brush Color);
+    private void StartButton_Click(object sender, RoutedEventArgs e)
+    {
+        ApplyTheme();
+        StartMenuOverlay.Visibility = Visibility.Collapsed;
+        StartNewGame();
+    }
+
+    private void ExitButton_Click(object sender, RoutedEventArgs e)
+    {
+        Close();
+    }
+
+    private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        UpdateBoardLayout();
+        Draw();
+    }
+
+    private record Tetromino(Point[] Cells, Brush Color, bool IsSquare);
 }
