@@ -12,11 +12,39 @@
         SizeChanged="Window_SizeChanged">
     <Grid x:Name="RootGrid" Margin="14">
         <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="300" />
             <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="340" />
+            <ColumnDefinition Width="360" />
         </Grid.ColumnDefinitions>
 
         <Border Grid.Column="0"
+                x:Name="AdBorder"
+                CornerRadius="16"
+                BorderBrush="#3A4A6A"
+                BorderThickness="2"
+                Background="#081A33"
+                Margin="10"
+                Padding="20">
+            <StackPanel>
+                <TextBlock Text="STREFA REKLAM"
+                           Foreground="#E2E8F0"
+                           FontSize="26"
+                           FontWeight="Bold"
+                           Margin="0,0,0,12" />
+                <Border BorderBrush="#4E6C95" BorderThickness="2" CornerRadius="12" Background="#0E223F" Height="600">
+                    <Grid>
+                        <TextBlock Text="Miejsce na reklamy\nna pokazach"
+                                   Foreground="#9FB4D1"
+                                   FontSize="28"
+                                   TextAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Center" />
+                    </Grid>
+                </Border>
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Column="1"
                 x:Name="BoardBorder"
                 CornerRadius="16"
                 BorderBrush="#3A4A6A"
@@ -48,54 +76,55 @@
             </Grid>
         </Border>
 
-        <StackPanel Grid.Column="1" Margin="18,10,10,10" VerticalAlignment="Stretch">
-            <TextBlock Text="TETRIS"
+        <StackPanel Grid.Column="2" Margin="18,10,10,10" VerticalAlignment="Stretch">
+            <TextBlock x:Name="TitleText"
+                       Text="TETRIS"
                        Foreground="#E2E8F0"
-                       FontSize="44"
+                       FontSize="56"
                        FontWeight="Bold"
                        Margin="0,0,0,12" />
 
-            <Border CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="16" Margin="0,0,0,12">
+            <Border x:Name="NickCard" CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="16" Margin="0,0,0,12">
                 <StackPanel>
                     <TextBlock Text="NICK" Foreground="#94A3B8" FontSize="13" />
                     <TextBlock x:Name="PlayerNameText" Text="Gracz" Foreground="#F8FAFC" FontSize="26" FontWeight="SemiBold" />
                 </StackPanel>
             </Border>
 
-            <Border CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="16" Margin="0,0,0,12">
+            <Border x:Name="ScoreCard" CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="16" Margin="0,0,0,12">
                 <StackPanel>
                     <TextBlock Text="WYNIK" Foreground="#94A3B8" FontSize="13" />
                     <TextBlock x:Name="ScoreText" Text="0" Foreground="#F8FAFC" FontSize="32" FontWeight="SemiBold" />
                 </StackPanel>
             </Border>
 
-            <Border CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="16" Margin="0,0,0,12">
+            <Border x:Name="LevelCard" CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="16" Margin="0,0,0,12">
                 <StackPanel>
                     <TextBlock Text="POZIOM" Foreground="#94A3B8" FontSize="13" />
                     <TextBlock x:Name="LevelText" Text="1" Foreground="#F8FAFC" FontSize="30" FontWeight="SemiBold" />
                 </StackPanel>
             </Border>
 
-            <Border CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="16" Margin="0,0,0,12">
+            <Border x:Name="NextCard" CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="16" Margin="0,0,0,12">
                 <StackPanel>
                     <TextBlock Text="NASTĘPNY KLOCEK" Foreground="#94A3B8" FontSize="13" Margin="0,0,0,8" />
                     <Canvas x:Name="NextPieceCanvas" Width="130" Height="120" />
                 </StackPanel>
             </Border>
 
-            <Border CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="14" Margin="0,0,0,12">
+            <Border x:Name="HighScoreCard" CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="14" Margin="0,0,0,12">
                 <StackPanel>
-                    <TextBlock Text="TABELA WYNIKÓW" Foreground="#94A3B8" FontSize="13" Margin="0,0,0,8" />
+                    <TextBlock Text="TABELA WYNIKÓW" Foreground="#94A3B8" FontSize="14" Margin="0,0,0,8" FontWeight="SemiBold" />
                     <ListBox x:Name="HighScoresListBox"
-                             Height="150"
+                             Height="280"
                              Background="#0F1C34"
                              BorderBrush="#3C577C"
                              Foreground="#F8FAFC"
-                             FontSize="14" />
+                             FontSize="20" />
                 </StackPanel>
             </Border>
 
-            <Border CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="14">
+            <Border x:Name="StatusCard" CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="14">
                 <TextBlock x:Name="StatusText"
                            Text="Strzałki: ruch/obrót • Spacja: szybki zrzut • Esc: zamknij"
                            Foreground="#A9B7CB"
@@ -104,7 +133,7 @@
             </Border>
         </StackPanel>
 
-        <Grid x:Name="StartMenuOverlay" Grid.ColumnSpan="2" Background="#CC020617">
+        <Grid x:Name="StartMenuOverlay" Grid.ColumnSpan="3" Background="#CC020617">
             <Border Width="560"
                     Padding="26"
                     CornerRadius="18"
@@ -145,8 +174,8 @@
                               Foreground="#F8FAFC"
                               BorderBrush="#3C577C">
                         <ComboBoxItem Content="1 - Wolny" />
-                        <ComboBoxItem Content="2 - Normalny" />
-                        <ComboBoxItem Content="3 - Szybki" />
+                        <ComboBoxItem Content="2 - Dynamiczny" />
+                        <ComboBoxItem Content="3 - Turbo" />
                     </ComboBox>
 
                     <TextBlock Text="Tryb kolorów" Foreground="#CBD5E1" />
@@ -158,8 +187,8 @@
                               Background="#0F1C34"
                               Foreground="#F8FAFC"
                               BorderBrush="#3C577C">
-                        <ComboBoxItem Content="Neon" />
-                        <ComboBoxItem Content="Pastel" />
+                        <ComboBoxItem Content="Neon Arena" />
+                        <ComboBoxItem Content="Sunset Retro" />
                     </ComboBox>
 
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">

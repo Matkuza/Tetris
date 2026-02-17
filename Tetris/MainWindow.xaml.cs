@@ -39,6 +39,8 @@ public partial class MainWindow : Window
     private int _startLevel;
     private double _cellSize = 36;
 
+    private Color _emptyCellColor = Color.FromRgb(12, 20, 38);
+
     private static readonly Color[] NeonPalette =
     [
         Color.FromRgb(34, 211, 238), Color.FromRgb(59, 130, 246), Color.FromRgb(251, 146, 60),
@@ -46,11 +48,11 @@ public partial class MainWindow : Window
         Color.FromRgb(248, 113, 113)
     ];
 
-    private static readonly Color[] PastelPalette =
+    private static readonly Color[] RetroPalette =
     [
-        Color.FromRgb(125, 211, 252), Color.FromRgb(165, 180, 252), Color.FromRgb(253, 186, 116),
-        Color.FromRgb(253, 224, 71), Color.FromRgb(134, 239, 172), Color.FromRgb(216, 180, 254),
-        Color.FromRgb(252, 165, 165)
+        Color.FromRgb(255, 112, 67), Color.FromRgb(255, 202, 40), Color.FromRgb(156, 204, 101),
+        Color.FromRgb(38, 198, 218), Color.FromRgb(126, 87, 194), Color.FromRgb(236, 64, 122),
+        Color.FromRgb(255, 167, 38)
     ];
 
     private Brush[] _activePaletteBrushes = [];
@@ -81,8 +83,47 @@ public partial class MainWindow : Window
 
     private void ApplyTheme()
     {
-        var source = ThemeComboBox.SelectedIndex == 1 ? PastelPalette : NeonPalette;
-        _activePaletteBrushes = source.Select(c => (Brush)new SolidColorBrush(c)).ToArray();
+        if (ThemeComboBox.SelectedIndex == 1)
+        {
+            _activePaletteBrushes = RetroPalette.Select(c => (Brush)new SolidColorBrush(c)).ToArray();
+            Background = new SolidColorBrush(Color.FromRgb(30, 10, 16));
+            _emptyCellColor = Color.FromRgb(56, 20, 28);
+            SetCardTheme(Color.FromRgb(73, 33, 44), Color.FromRgb(109, 60, 77), Color.FromRgb(248, 224, 193));
+            AdBorder.Background = new SolidColorBrush(Color.FromRgb(61, 28, 40));
+            AdBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(126, 74, 91));
+            BoardBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(168, 109, 133));
+            BoardBorder.Background = new SolidColorBrush(Color.FromRgb(37, 12, 20));
+        }
+        else
+        {
+            _activePaletteBrushes = NeonPalette.Select(c => (Brush)new SolidColorBrush(c)).ToArray();
+            Background = new SolidColorBrush(Color.FromRgb(5, 8, 22));
+            _emptyCellColor = Color.FromRgb(12, 20, 38);
+            SetCardTheme(Color.FromRgb(9, 18, 36), Color.FromRgb(50, 67, 95), Color.FromRgb(230, 238, 250));
+            AdBorder.Background = new SolidColorBrush(Color.FromRgb(8, 26, 51));
+            AdBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(58, 74, 106));
+            BoardBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(58, 74, 106));
+            BoardBorder.Background = new SolidColorBrush(Color.FromRgb(2, 6, 23));
+        }
+
+        Draw();
+    }
+
+    private void SetCardTheme(Color bg, Color border, Color titleColor)
+    {
+        var bgBrush = new SolidColorBrush(bg);
+        var borderBrush = new SolidColorBrush(border);
+        var titleBrush = new SolidColorBrush(titleColor);
+
+        foreach (var card in new[] { NickCard, ScoreCard, LevelCard, NextCard, HighScoreCard, StatusCard })
+        {
+            card.Background = bgBrush;
+            card.BorderBrush = borderBrush;
+        }
+
+        TitleText.Foreground = titleBrush;
+        HighScoresListBox.BorderBrush = borderBrush;
+        HighScoresListBox.Background = new SolidColorBrush(Color.FromArgb(90, bg.R, bg.G, bg.B));
     }
 
     private void StartNewGame()
@@ -96,8 +137,8 @@ public partial class MainWindow : Window
 
         _startLevel = StartLevelComboBox.SelectedIndex switch
         {
-            1 => 2,
-            2 => 4,
+            1 => 4,
+            2 => 8,
             _ => 1
         };
 
@@ -115,7 +156,7 @@ public partial class MainWindow : Window
     private void SetTimerSpeed()
     {
         var level = _startLevel + (_linesCleared / 8);
-        var speedMs = Math.Max(85, 560 - (level - 1) * 45);
+        var speedMs = Math.Max(30, 620 - (level - 1) * 85);
         _timer.Interval = TimeSpan.FromMilliseconds(speedMs);
     }
 
@@ -397,7 +438,7 @@ public partial class MainWindow : Window
 
         if (!_gameOver)
         {
-            StatusText.Text = "Punkty tylko za pełne linie • Strzałki/Spacja • Esc: zamknij";
+            StatusText.Text = "Tryb szybki mocno zwiększa tempo • Strzałki/Spacja • Esc";
         }
     }
 
@@ -420,7 +461,7 @@ public partial class MainWindow : Window
     {
         GameCanvas.Children.Clear();
 
-        var emptyBrush = new SolidColorBrush(Color.FromRgb(12, 20, 38));
+        var emptyBrush = new SolidColorBrush(_emptyCellColor);
         for (var y = 0; y < BoardHeight; y++)
         {
             for (var x = 0; x < BoardWidth; x++)
