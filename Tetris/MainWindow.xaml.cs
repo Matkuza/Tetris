@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -16,6 +17,16 @@ public partial class MainWindow : Window
     private readonly Brush?[,] _board = new Brush?[BoardHeight, BoardWidth];
     private readonly Random _random = new();
     private readonly DispatcherTimer _timer;
+    private readonly ObservableCollection<string> _highScoreRows =
+    [
+        "1. --- 0",
+        "2. --- 0",
+        "3. --- 0",
+        "4. --- 0",
+        "5. --- 0"
+    ];
+
+    private readonly List<ScoreEntry> _highScores = [];
 
     private Tetromino _currentPiece = null!;
     private Tetromino _nextPiece = null!;
@@ -61,6 +72,8 @@ public partial class MainWindow : Window
         _timer = new DispatcherTimer();
         _timer.Tick += (_, _) => Tick();
 
+        HighScoresListBox.ItemsSource = _highScoreRows;
+
         ApplyTheme();
         UpdateBoardLayout();
         Draw();
@@ -79,6 +92,7 @@ public partial class MainWindow : Window
         _linesCleared = 0;
         _gameOver = false;
         _isGameStarted = true;
+        GameOverOverlay.Visibility = Visibility.Collapsed;
 
         _startLevel = StartLevelComboBox.SelectedIndex switch
         {
@@ -136,12 +150,49 @@ public partial class MainWindow : Window
 
         if (!IsPositionValid(_currentX, _currentY, _currentPiece.Cells))
         {
-            _gameOver = true;
-            _timer.Stop();
-            StatusText.Text = "Koniec gry • Enter: nowa gra • Esc: zamknij";
+            OnGameOver();
         }
 
         DrawNextPiece();
+    }
+
+    private void OnGameOver()
+    {
+        _gameOver = true;
+        _timer.Stop();
+        RegisterScore();
+        GameOverOverlay.Visibility = Visibility.Visible;
+        StatusText.Text = "PRZEGRAŁEŚ • Spacja: menu start • Esc: zamknij";
+    }
+
+    private void RegisterScore()
+    {
+        var nick = string.IsNullOrWhiteSpace(PlayerNameText.Text) ? "Gracz" : PlayerNameText.Text;
+        _highScores.Add(new ScoreEntry(nick, _score));
+        _highScores.Sort((a, b) => b.Points.CompareTo(a.Points));
+        if (_highScores.Count > 5)
+        {
+            _highScores.RemoveRange(5, _highScores.Count - 5);
+        }
+
+        RefreshHighScores();
+    }
+
+    private void RefreshHighScores()
+    {
+        _highScoreRows.Clear();
+        for (var i = 0; i < 5; i++)
+        {
+            if (i < _highScores.Count)
+            {
+                var entry = _highScores[i];
+                _highScoreRows.Add($"{i + 1}. {entry.Name} - {entry.Points}");
+            }
+            else
+            {
+                _highScoreRows.Add($"{i + 1}. --- 0");
+            }
+        }
     }
 
     private Tetromino CreateRandomPiece()
@@ -450,9 +501,11 @@ public partial class MainWindow : Window
 
         if (_gameOver)
         {
-            if (e.Key == Key.Enter)
+            if (e.Key == Key.Space)
             {
+                GameOverOverlay.Visibility = Visibility.Collapsed;
                 StartMenuOverlay.Visibility = Visibility.Visible;
+                _isGameStarted = false;
             }
 
             return;
@@ -499,4 +552,5 @@ public partial class MainWindow : Window
     }
 
     private record Tetromino(Point[] Cells, Brush Color, bool IsSquare);
+    private record ScoreEntry(string Name, int Points);
 }

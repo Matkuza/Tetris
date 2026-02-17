@@ -13,7 +13,7 @@
     <Grid x:Name="RootGrid" Margin="14">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="320" />
+            <ColumnDefinition Width="340" />
         </Grid.ColumnDefinitions>
 
         <Border Grid.Column="0"
@@ -28,6 +28,23 @@
             <Grid>
                 <Canvas x:Name="GameCanvas" />
                 <Canvas x:Name="EffectCanvas" IsHitTestVisible="False" />
+
+                <Border x:Name="GameOverOverlay"
+                        Visibility="Collapsed"
+                        Background="#D9B91C1C">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock Text="PRZEGRAŁEŚ"
+                                   Foreground="#FFE5E5"
+                                   FontSize="78"
+                                   FontWeight="Bold"
+                                   HorizontalAlignment="Center" />
+                        <TextBlock Text="Naciśnij SPACJĘ aby wrócić do menu"
+                                   Foreground="#FFE5E5"
+                                   FontSize="24"
+                                   Margin="0,14,0,0"
+                                   HorizontalAlignment="Center" />
+                    </StackPanel>
+                </Border>
             </Grid>
         </Border>
 
@@ -63,6 +80,18 @@
                 <StackPanel>
                     <TextBlock Text="NASTĘPNY KLOCEK" Foreground="#94A3B8" FontSize="13" Margin="0,0,0,8" />
                     <Canvas x:Name="NextPieceCanvas" Width="130" Height="120" />
+                </StackPanel>
+            </Border>
+
+            <Border CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="14" Margin="0,0,0,12">
+                <StackPanel>
+                    <TextBlock Text="TABELA WYNIKÓW" Foreground="#94A3B8" FontSize="13" Margin="0,0,0,8" />
+                    <ListBox x:Name="HighScoresListBox"
+                             Height="150"
+                             Background="#0F1C34"
+                             BorderBrush="#3C577C"
+                             Foreground="#F8FAFC"
+                             FontSize="14" />
                 </StackPanel>
             </Border>
 
