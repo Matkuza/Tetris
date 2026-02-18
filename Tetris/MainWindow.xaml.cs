@@ -18,6 +18,7 @@ public partial class MainWindow : Window
 {
     private const int BoardWidth = 10;
     private const int BoardHeight = 20;
+    private const string AdManagerPassword = "12345";
 
     private readonly Brush?[,] _board = new Brush?[BoardHeight, BoardWidth];
     private readonly Random _random = new();
@@ -569,6 +570,7 @@ public partial class MainWindow : Window
             {
                 GameOverOverlay.Visibility = Visibility.Collapsed;
                 StartMenuOverlay.Visibility = Visibility.Visible;
+                ResetAdManagerUi();
                 _isGameStarted = false;
             }
 
@@ -808,8 +810,46 @@ public partial class MainWindow : Window
         RotateAds();
     }
 
+    private void ResetAdManagerUi()
+    {
+        AdManagerPanel.Visibility = Visibility.Collapsed;
+        AdManagerAuthPanel.Visibility = Visibility.Visible;
+        AdManagerControls.Visibility = Visibility.Collapsed;
+        AdManagerPasswordBox.Password = string.Empty;
+        AdManagerHintText.Text = string.Empty;
+    }
+
+    private void OpenAdManagerButton_Click(object sender, RoutedEventArgs e)
+    {
+        AdManagerPanel.Visibility = Visibility.Visible;
+        AdManagerAuthPanel.Visibility = Visibility.Visible;
+        AdManagerControls.Visibility = Visibility.Collapsed;
+        AdManagerPasswordBox.Password = string.Empty;
+        AdManagerHintText.Text = string.Empty;
+        AdManagerPasswordBox.Focus();
+    }
+
+    private void UnlockAdManagerButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (AdManagerPasswordBox.Password != AdManagerPassword)
+        {
+            AdManagerHintText.Text = "Błędne hasło";
+            return;
+        }
+
+        AdManagerHintText.Text = string.Empty;
+        AdManagerAuthPanel.Visibility = Visibility.Collapsed;
+        AdManagerControls.Visibility = Visibility.Visible;
+    }
+
+    private void CloseAdManagerButton_Click(object sender, RoutedEventArgs e)
+    {
+        ResetAdManagerUi();
+    }
+
     private void StartButton_Click(object sender, RoutedEventArgs e)
     {
+        ResetAdManagerUi();
         ApplyTheme();
         StartMenuOverlay.Visibility = Visibility.Collapsed;
         StartNewGame();
