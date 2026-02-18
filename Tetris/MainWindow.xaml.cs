@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using IOPath = System.IO.Path;
 using System.Text.Json;
 using System.Windows;
@@ -651,7 +652,7 @@ public partial class MainWindow : Window
 
     private void SaveAdsManifest()
     {
-        var data = _ads.Select(a => new AdManifestItem(a.FileName, a.DisplayName)).ToList();
+        List<AdManifestItem> data = [.. _ads.Select(a => new AdManifestItem(a.FileName, a.DisplayName))];
         var json = JsonSerializer.Serialize(data, JsonWriteOptions);
         File.WriteAllText(_adManifestPath, json);
     }
