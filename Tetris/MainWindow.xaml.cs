@@ -1,5 +1,5 @@
 using System.Collections.ObjectModel;
-using System.IO;
+using IOPath = System.IO.Path;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
@@ -37,6 +37,8 @@ public partial class MainWindow : Window
     private int _adDisplayCursor;
     private readonly string _adStorageFolder;
     private readonly string _adManifestPath;
+
+    private static readonly JsonSerializerOptions JsonWriteOptions = new() { WriteIndented = true };
 
     private Tetromino _currentPiece = null!;
     private Tetromino _nextPiece = null!;
@@ -87,7 +89,7 @@ public partial class MainWindow : Window
         _adTimer.Tick += (_, _) => RotateAds();
 
         _adStorageFolder = ResolveAdStoragePath();
-        _adManifestPath = Path.Combine(_adStorageFolder, "ads.json");
+        _adManifestPath = IOPath.Combine(_adStorageFolder, "ads.json");
 
         HighScoresListBox.ItemsSource = _highScoreRows;
         AdListBox.ItemsSource = _ads;
@@ -350,7 +352,7 @@ public partial class MainWindow : Window
 
     private List<int> ClearFullLines()
     {
-        var removedRows = new List<int>();
+        List<int> removedRows = [];
 
         for (var y = BoardHeight - 1; y >= 0; y--)
         {
@@ -599,16 +601,16 @@ public partial class MainWindow : Window
         var current = new DirectoryInfo(AppContext.BaseDirectory);
         while (current is not null)
         {
-            var projectFile = Path.Combine(current.FullName, "Tetris.csproj");
+            var projectFile = IOPath.Combine(current.FullName, "Tetris.csproj");
             if (File.Exists(projectFile))
             {
-                return Path.Combine(current.FullName, "AdAssets");
+                return IOPath.Combine(current.FullName, "AdAssets");
             }
 
             current = current.Parent;
         }
 
-        return Path.Combine(AppContext.BaseDirectory, "AdAssets");
+        return IOPath.Combine(AppContext.BaseDirectory, "AdAssets");
     }
 
     private void EnsureAdStorage()
@@ -632,7 +634,7 @@ public partial class MainWindow : Window
             var data = JsonSerializer.Deserialize<List<AdManifestItem>>(json) ?? [];
             foreach (var item in data)
             {
-                var fullPath = Path.Combine(_adStorageFolder, item.FileName);
+                var fullPath = IOPath.Combine(_adStorageFolder, item.FileName);
                 if (!File.Exists(fullPath))
                 {
                     continue;
@@ -650,7 +652,7 @@ public partial class MainWindow : Window
     private void SaveAdsManifest()
     {
         var data = _ads.Select(a => new AdManifestItem(a.FileName, a.DisplayName)).ToList();
-        var json = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
+        var json = JsonSerializer.Serialize(data, JsonWriteOptions);
         File.WriteAllText(_adManifestPath, json);
     }
 
@@ -688,7 +690,7 @@ public partial class MainWindow : Window
 
     private void ShowAd(Image target, TextBlock placeholder, AdEntry ad)
     {
-        var filePath = Path.Combine(_adStorageFolder, ad.FileName);
+        var filePath = IOPath.Combine(_adStorageFolder, ad.FileName);
         if (!File.Exists(filePath))
         {
             placeholder.Visibility = Visibility.Visible;
@@ -699,7 +701,7 @@ public partial class MainWindow : Window
         var bitmap = new BitmapImage();
         bitmap.BeginInit();
         bitmap.CacheOption = BitmapCacheOption.OnLoad;
-        bitmap.UriSource = new Uri(filePath, UriKind.Absolute);
+        bitmap.UriSource = new Uri(filePath);
         bitmap.EndInit();
         bitmap.Freeze();
 
@@ -733,12 +735,12 @@ public partial class MainWindow : Window
         try
         {
             EnsureAdStorage();
-            var extension = Path.GetExtension(dialog.FileName);
+            var extension = IOPath.GetExtension(dialog.FileName);
             var savedName = $"{DateTime.Now:yyyyMMdd_HHmmssfff}{extension}";
-            var destinationPath = Path.Combine(_adStorageFolder, savedName);
+            var destinationPath = IOPath.Combine(_adStorageFolder, savedName);
             File.Copy(dialog.FileName, destinationPath, overwrite: false);
 
-            _ads.Add(new AdEntry(savedName, Path.GetFileName(dialog.FileName)));
+            _ads.Add(new AdEntry(savedName, IOPath.GetFileName(dialog.FileName)));
             SaveAdsManifest();
             AdListBox.SelectedIndex = _ads.Count - 1;
             RotateAds();
@@ -757,7 +759,7 @@ public partial class MainWindow : Window
         }
 
         var selectedIndex = AdListBox.SelectedIndex;
-        var filePath = Path.Combine(_adStorageFolder, selected.FileName);
+        var filePath = IOPath.Combine(_adStorageFolder, selected.FileName);
         _ads.Remove(selected);
 
         if (File.Exists(filePath))
