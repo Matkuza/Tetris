@@ -12,9 +12,9 @@
         SizeChanged="Window_SizeChanged">
     <Grid x:Name="RootGrid" Margin="14">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="300" />
+            <ColumnDefinition Width="600" />
             <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="360" />
+            <ColumnDefinition Width="450" />
         </Grid.ColumnDefinitions>
 
         <Border Grid.Column="0"
@@ -26,8 +26,8 @@
                 Margin="10"
                 Padding="20">
             <StackPanel>
-                <TextBlock Text="STREFA REKLAM"
-                           Foreground="#E2E8F0"
+                <TextBlock Text="TECHNIKUM INFINITY"
+                           Foreground="#f9ff00"
                            FontSize="26"
                            FontWeight="Bold"
                            Margin="0,0,0,12" />
@@ -152,7 +152,12 @@
                                Foreground="#94A3B8"
                                FontSize="16"
                                Margin="0,0,0,18" />
-
+                    <!-- To jest komentarz -->
+                    <!-- To jest komentarz -->
+                    <!-- To jest komentarz -->
+                    <!-- To jest komentarz -->
+                    <!-- To jest komentarz -->
+                    <!-- To jest komentarz -->
                     <TextBlock Text="Nick" Foreground="#CBD5E1" />
                     <TextBox x:Name="NickTextBox"
                              Text="Gracz"
