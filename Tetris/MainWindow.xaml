@@ -34,9 +34,11 @@
 
                 <Grid>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="270" />
-                        <RowDefinition Height="12" />
-                        <RowDefinition Height="270" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="10" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="10" />
+                        <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
                     <Border Grid.Row="0" BorderBrush="#4E6C95" BorderThickness="2" CornerRadius="12" Background="#0E223F">
@@ -45,9 +47,9 @@
                                    Stretch="UniformToFill"
                                    Opacity="0" />
                             <TextBlock x:Name="AdPlaceholderTop"
-                                       Text="Brak reklam"
+                                       Text="Panel 1 • Brak reklam"
                                        Foreground="#9FB4D1"
-                                       FontSize="24"
+                                       FontSize="22"
                                        TextAlignment="Center"
                                        VerticalAlignment="Center"
                                        HorizontalAlignment="Center" />
@@ -56,13 +58,28 @@
 
                     <Border Grid.Row="2" BorderBrush="#4E6C95" BorderThickness="2" CornerRadius="12" Background="#0E223F">
                         <Grid>
+                            <Image x:Name="AdImageMiddle"
+                                   Stretch="UniformToFill"
+                                   Opacity="0" />
+                            <TextBlock x:Name="AdPlaceholderMiddle"
+                                       Text="Panel 2 • Brak reklam"
+                                       Foreground="#9FB4D1"
+                                       FontSize="22"
+                                       TextAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       HorizontalAlignment="Center" />
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="4" BorderBrush="#4E6C95" BorderThickness="2" CornerRadius="12" Background="#0E223F">
+                        <Grid>
                             <Image x:Name="AdImageBottom"
                                    Stretch="UniformToFill"
                                    Opacity="0" />
                             <TextBlock x:Name="AdPlaceholderBottom"
-                                       Text="Brak reklam"
+                                       Text="Panel 3 • Brak reklam"
                                        Foreground="#9FB4D1"
-                                       FontSize="24"
+                                       FontSize="22"
                                        TextAlignment="Center"
                                        VerticalAlignment="Center"
                                        HorizontalAlignment="Center" />
@@ -274,36 +291,109 @@
                             </StackPanel>
 
                             <StackPanel x:Name="AdManagerControls" Visibility="Collapsed">
-                                <Button Content="Dodaj grafikę"
-                                        Click="AddAdButton_Click"
-                                        Padding="10,6"
-                                        Margin="0,8,0,8"
-                                        Background="#1D4ED8"
-                                        Foreground="White"
-                                        BorderBrush="#5B8EFF" />
+                                <Grid Margin="0,8,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="1.1*" />
+                                        <ColumnDefinition Width="10" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
 
-                                <ListBox x:Name="AdListBox"
-                                         DisplayMemberPath="DisplayName"
-                                         Height="150"
-                                         Margin="0,0,0,8"
-                                         Background="#0F1C34"
-                                         BorderBrush="#3C577C"
-                                         Foreground="#F8FAFC"
-                                         FontSize="14" />
+                                    <StackPanel Grid.Column="0">
+                                        <Button Content="Dodaj grafikę"
+                                                Click="AddAdButton_Click"
+                                                Padding="10,6"
+                                                Margin="0,0,0,8"
+                                                Background="#1D4ED8"
+                                                Foreground="White"
+                                                BorderBrush="#5B8EFF" />
 
-                                <WrapPanel>
-                                    <Button Content="↑"
-                                            Width="40"
-                                            Margin="0,0,8,0"
-                                            Click="MoveAdUpButton_Click" />
-                                    <Button Content="↓"
-                                            Width="40"
-                                            Margin="0,0,8,0"
-                                            Click="MoveAdDownButton_Click" />
-                                    <Button Content="Usuń"
-                                            Click="DeleteAdButton_Click"
-                                            Padding="10,4" />
-                                </WrapPanel>
+                                        <ListBox x:Name="AdListBox"
+                                                 DisplayMemberPath="DisplayName"
+                                                 SelectionChanged="AdListBox_SelectionChanged"
+                                                 Height="190"
+                                                 Margin="0,0,0,8"
+                                                 Background="#0F1C34"
+                                                 BorderBrush="#3C577C"
+                                                 Foreground="#F8FAFC"
+                                                 FontSize="14" />
+
+                                        <WrapPanel>
+                                            <Button Content="↑"
+                                                    Width="40"
+                                                    Margin="0,0,8,0"
+                                                    Click="MoveAdUpButton_Click" />
+                                            <Button Content="↓"
+                                                    Width="40"
+                                                    Margin="0,0,8,0"
+                                                    Click="MoveAdDownButton_Click" />
+                                            <Button Content="Usuń"
+                                                    Click="DeleteAdButton_Click"
+                                                    Padding="10,4" />
+                                        </WrapPanel>
+                                    </StackPanel>
+
+                                    <Border Grid.Column="2"
+                                            CornerRadius="10"
+                                            BorderBrush="#355071"
+                                            BorderThickness="1"
+                                            Padding="10"
+                                            Background="#10203C">
+                                        <StackPanel>
+                                            <TextBlock Text="USTAWIENIA WYBRANEJ GRAFIKI"
+                                                       Foreground="#D7E4F6"
+                                                       FontWeight="SemiBold"
+                                                       Margin="0,0,0,8" />
+
+                                            <TextBlock Text="Czas wyświetlania (sek)" Foreground="#CBD5E1" />
+                                            <TextBox x:Name="SelectedAdDurationTextBox"
+                                                     Margin="0,4,0,8"
+                                                     Padding="6"
+                                                     Text="10"
+                                                     Background="#132647"
+                                                     Foreground="#F8FAFC"
+                                                     BorderBrush="#3C577C" />
+
+                                            <TextBlock Text="Pokaż na panelach" Foreground="#CBD5E1" />
+                                            <WrapPanel Margin="0,4,0,8">
+                                                <CheckBox x:Name="SelectedAdTopCheckBox" Content="Panel 1" Margin="0,0,12,0" Foreground="#E2E8F0" />
+                                                <CheckBox x:Name="SelectedAdMiddleCheckBox" Content="Panel 2" Margin="0,0,12,0" Foreground="#E2E8F0" />
+                                                <CheckBox x:Name="SelectedAdBottomCheckBox" Content="Panel 3" Foreground="#E2E8F0" />
+                                            </WrapPanel>
+
+                                            <Button Content="Zapisz ustawienia grafiki"
+                                                    Click="SaveSelectedAdSettingsButton_Click"
+                                                    Padding="10,6"
+                                                    Margin="0,0,0,14" />
+
+                                            <TextBlock Text="USTAWIENIA GLOBALNE"
+                                                       Foreground="#D7E4F6"
+                                                       FontWeight="SemiBold"
+                                                       Margin="0,0,0,8" />
+
+                                            <TextBlock Text="Co ile sekund odświeżać harmonogram" Foreground="#CBD5E1" />
+                                            <TextBox x:Name="RotationIntervalTextBox"
+                                                     Margin="0,4,0,8"
+                                                     Padding="6"
+                                                     Text="1"
+                                                     Background="#132647"
+                                                     Foreground="#F8FAFC"
+                                                     BorderBrush="#3C577C" />
+
+                                            <TextBlock Text="Domyślny czas dla nowych grafik (sek)" Foreground="#CBD5E1" />
+                                            <TextBox x:Name="DefaultAdDurationTextBox"
+                                                     Margin="0,4,0,8"
+                                                     Padding="6"
+                                                     Text="10"
+                                                     Background="#132647"
+                                                     Foreground="#F8FAFC"
+                                                     BorderBrush="#3C577C" />
+
+                                            <Button Content="Zapisz ustawienia globalne"
+                                                    Click="SaveGlobalAdSettingsButton_Click"
+                                                    Padding="10,6" />
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
                             </StackPanel>
                         </StackPanel>
                     </Border>
