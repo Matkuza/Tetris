@@ -25,14 +25,23 @@
                 Background="#081A33"
                 Margin="10"
                 Padding="20">
-            <StackPanel>
-                <TextBlock Text="TECHNIKUM INFINITY"
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="12" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0"
+                           Text="TECHNIKUM INFINITY"
                            Foreground="#f9ff00"
                            FontSize="26"
                            FontWeight="Bold"
-                           Margin="0,0,0,12" />
+                           Margin="0,0,0,0" />
 
-                <Grid>
+                <Grid Grid.Row="2"
+                      VerticalAlignment="Stretch"
+                      HorizontalAlignment="Stretch">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="*" />
                         <RowDefinition Height="10" />
@@ -41,10 +50,10 @@
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <Border Grid.Row="0" BorderBrush="#4E6C95" BorderThickness="2" CornerRadius="12" Background="#0E223F">
+                    <Border Grid.Row="0" BorderBrush="#4E6C95" BorderThickness="2" CornerRadius="12" Background="#0E223F" ClipToBounds="True">
                         <Grid>
                             <Image x:Name="AdImageTop"
-                                   Stretch="UniformToFill"
+                                   Stretch="Uniform"
                                    Opacity="0" />
                             <TextBlock x:Name="AdPlaceholderTop"
                                        Text="Panel 1 • Brak reklam"
@@ -56,10 +65,10 @@
                         </Grid>
                     </Border>
 
-                    <Border Grid.Row="2" BorderBrush="#4E6C95" BorderThickness="2" CornerRadius="12" Background="#0E223F">
+                    <Border Grid.Row="2" BorderBrush="#4E6C95" BorderThickness="2" CornerRadius="12" Background="#0E223F" ClipToBounds="True">
                         <Grid>
                             <Image x:Name="AdImageMiddle"
-                                   Stretch="UniformToFill"
+                                   Stretch="Uniform"
                                    Opacity="0" />
                             <TextBlock x:Name="AdPlaceholderMiddle"
                                        Text="Panel 2 • Brak reklam"
@@ -71,10 +80,10 @@
                         </Grid>
                     </Border>
 
-                    <Border Grid.Row="4" BorderBrush="#4E6C95" BorderThickness="2" CornerRadius="12" Background="#0E223F">
+                    <Border Grid.Row="4" BorderBrush="#4E6C95" BorderThickness="2" CornerRadius="12" Background="#0E223F" ClipToBounds="True">
                         <Grid>
                             <Image x:Name="AdImageBottom"
-                                   Stretch="UniformToFill"
+                                   Stretch="Uniform"
                                    Opacity="0" />
                             <TextBlock x:Name="AdPlaceholderBottom"
                                        Text="Panel 3 • Brak reklam"
@@ -86,8 +95,7 @@
                         </Grid>
                     </Border>
                 </Grid>
-
-            </StackPanel>
+            </Grid>
         </Border>
 
         <Border Grid.Column="1"
