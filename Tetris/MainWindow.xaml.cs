@@ -1,11 +1,15 @@
 using System.Collections.ObjectModel;
+using System.IO;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using System.Windows.Threading;
+using Microsoft.Win32;
 
 namespace Tetris;
 
@@ -27,6 +31,12 @@ public partial class MainWindow : Window
     ];
 
     private readonly List<ScoreEntry> _highScores = [];
+    private readonly ObservableCollection<AdEntry> _ads = [];
+    private readonly DispatcherTimer _adTimer;
+
+    private int _adDisplayCursor;
+    private readonly string _adStorageFolder;
+    private readonly string _adManifestPath;
 
     private Tetromino _currentPiece = null!;
     private Tetromino _nextPiece = null!;
@@ -73,12 +83,22 @@ public partial class MainWindow : Window
         InitializeComponent();
         _timer = new DispatcherTimer();
         _timer.Tick += (_, _) => Tick();
+        _adTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(10) };
+        _adTimer.Tick += (_, _) => RotateAds();
+
+        _adStorageFolder = ResolveAdStoragePath();
+        _adManifestPath = Path.Combine(_adStorageFolder, "ads.json");
 
         HighScoresListBox.ItemsSource = _highScoreRows;
+        AdListBox.ItemsSource = _ads;
 
+        EnsureAdStorage();
+        LoadAds();
         ApplyTheme();
         UpdateBoardLayout();
         Draw();
+        RotateAds();
+        _adTimer.Start();
     }
 
     private void ApplyTheme()
@@ -574,6 +594,217 @@ public partial class MainWindow : Window
         Draw();
     }
 
+    private static string ResolveAdStoragePath()
+    {
+        var current = new DirectoryInfo(AppContext.BaseDirectory);
+        while (current is not null)
+        {
+            var projectFile = Path.Combine(current.FullName, "Tetris.csproj");
+            if (File.Exists(projectFile))
+            {
+                return Path.Combine(current.FullName, "AdAssets");
+            }
+
+            current = current.Parent;
+        }
+
+        return Path.Combine(AppContext.BaseDirectory, "AdAssets");
+    }
+
+    private void EnsureAdStorage()
+    {
+        Directory.CreateDirectory(_adStorageFolder);
+    }
+
+    private void LoadAds()
+    {
+        _ads.Clear();
+
+        if (!File.Exists(_adManifestPath))
+        {
+            SaveAdsManifest();
+            return;
+        }
+
+        try
+        {
+            var json = File.ReadAllText(_adManifestPath);
+            var data = JsonSerializer.Deserialize<List<AdManifestItem>>(json) ?? [];
+            foreach (var item in data)
+            {
+                var fullPath = Path.Combine(_adStorageFolder, item.FileName);
+                if (!File.Exists(fullPath))
+                {
+                    continue;
+                }
+
+                _ads.Add(new AdEntry(item.FileName, item.DisplayName));
+            }
+        }
+        catch
+        {
+            _ads.Clear();
+        }
+    }
+
+    private void SaveAdsManifest()
+    {
+        var data = _ads.Select(a => new AdManifestItem(a.FileName, a.DisplayName)).ToList();
+        var json = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
+        File.WriteAllText(_adManifestPath, json);
+    }
+
+    private void RotateAds()
+    {
+        if (_ads.Count == 0)
+        {
+            ShowNoAds();
+            return;
+        }
+
+        if (_adDisplayCursor >= _ads.Count)
+        {
+            _adDisplayCursor = 0;
+        }
+
+        var topAd = _ads[_adDisplayCursor];
+        var bottomAd = _ads[(_adDisplayCursor + 1) % _ads.Count];
+
+        ShowAd(AdImageTop, AdPlaceholderTop, topAd);
+        ShowAd(AdImageBottom, AdPlaceholderBottom, bottomAd);
+
+        _adDisplayCursor = (_adDisplayCursor + 2) % _ads.Count;
+    }
+
+    private void ShowNoAds()
+    {
+        AdImageTop.Source = null;
+        AdImageBottom.Source = null;
+        AdImageTop.Opacity = 0;
+        AdImageBottom.Opacity = 0;
+        AdPlaceholderTop.Visibility = Visibility.Visible;
+        AdPlaceholderBottom.Visibility = Visibility.Visible;
+    }
+
+    private void ShowAd(Image target, TextBlock placeholder, AdEntry ad)
+    {
+        var filePath = Path.Combine(_adStorageFolder, ad.FileName);
+        if (!File.Exists(filePath))
+        {
+            placeholder.Visibility = Visibility.Visible;
+            target.Source = null;
+            return;
+        }
+
+        var bitmap = new BitmapImage();
+        bitmap.BeginInit();
+        bitmap.CacheOption = BitmapCacheOption.OnLoad;
+        bitmap.UriSource = new Uri(filePath, UriKind.Absolute);
+        bitmap.EndInit();
+        bitmap.Freeze();
+
+        target.Source = bitmap;
+        placeholder.Visibility = Visibility.Collapsed;
+
+        var fade = new DoubleAnimation
+        {
+            From = 0,
+            To = 1,
+            Duration = TimeSpan.FromMilliseconds(700),
+            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+        };
+
+        target.BeginAnimation(OpacityProperty, fade);
+    }
+
+    private void AddAdButton_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Wybierz reklamę",
+            Filter = "Obrazy (*.png;*.jpg;*.jpeg;*.bmp)|*.png;*.jpg;*.jpeg;*.bmp"
+        };
+
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        try
+        {
+            EnsureAdStorage();
+            var extension = Path.GetExtension(dialog.FileName);
+            var savedName = $"{DateTime.Now:yyyyMMdd_HHmmssfff}{extension}";
+            var destinationPath = Path.Combine(_adStorageFolder, savedName);
+            File.Copy(dialog.FileName, destinationPath, overwrite: false);
+
+            _ads.Add(new AdEntry(savedName, Path.GetFileName(dialog.FileName)));
+            SaveAdsManifest();
+            AdListBox.SelectedIndex = _ads.Count - 1;
+            RotateAds();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Nie udało się dodać reklamy: {ex.Message}", "Błąd", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void DeleteAdButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (AdListBox.SelectedItem is not AdEntry selected)
+        {
+            return;
+        }
+
+        var selectedIndex = AdListBox.SelectedIndex;
+        var filePath = Path.Combine(_adStorageFolder, selected.FileName);
+        _ads.Remove(selected);
+
+        if (File.Exists(filePath))
+        {
+            File.Delete(filePath);
+        }
+
+        SaveAdsManifest();
+
+        if (_ads.Count == 0)
+        {
+            ShowNoAds();
+            return;
+        }
+
+        AdListBox.SelectedIndex = Math.Min(selectedIndex, _ads.Count - 1);
+        RotateAds();
+    }
+
+    private void MoveAdUpButton_Click(object sender, RoutedEventArgs e)
+    {
+        var index = AdListBox.SelectedIndex;
+        if (index <= 0)
+        {
+            return;
+        }
+
+        _ads.Move(index, index - 1);
+        AdListBox.SelectedIndex = index - 1;
+        SaveAdsManifest();
+        RotateAds();
+    }
+
+    private void MoveAdDownButton_Click(object sender, RoutedEventArgs e)
+    {
+        var index = AdListBox.SelectedIndex;
+        if (index < 0 || index >= _ads.Count - 1)
+        {
+            return;
+        }
+
+        _ads.Move(index, index + 1);
+        AdListBox.SelectedIndex = index + 1;
+        SaveAdsManifest();
+        RotateAds();
+    }
+
     private void StartButton_Click(object sender, RoutedEventArgs e)
     {
         ApplyTheme();
@@ -594,4 +825,6 @@ public partial class MainWindow : Window
 
     private record Tetromino(Point[] Cells, Brush Color, bool IsSquare);
     private record ScoreEntry(string Name, int Points);
+    private record AdEntry(string FileName, string DisplayName);
+    private record AdManifestItem(string FileName, string DisplayName);
 }

@@ -31,15 +31,88 @@
                            FontSize="26"
                            FontWeight="Bold"
                            Margin="0,0,0,12" />
-                <Border BorderBrush="#4E6C95" BorderThickness="2" CornerRadius="12" Background="#0E223F" Height="600">
-                    <Grid>
-                        <TextBlock Text="Miejsce na reklamy\nna pokazach"
-                                   Foreground="#9FB4D1"
-                                   FontSize="28"
-                                   TextAlignment="Center"
-                                   VerticalAlignment="Center"
-                                   HorizontalAlignment="Center" />
-                    </Grid>
+
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="270" />
+                        <RowDefinition Height="12" />
+                        <RowDefinition Height="270" />
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" BorderBrush="#4E6C95" BorderThickness="2" CornerRadius="12" Background="#0E223F">
+                        <Grid>
+                            <Image x:Name="AdImageTop"
+                                   Stretch="UniformToFill"
+                                   Opacity="0" />
+                            <TextBlock x:Name="AdPlaceholderTop"
+                                       Text="Brak reklam"
+                                       Foreground="#9FB4D1"
+                                       FontSize="24"
+                                       TextAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       HorizontalAlignment="Center" />
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="2" BorderBrush="#4E6C95" BorderThickness="2" CornerRadius="12" Background="#0E223F">
+                        <Grid>
+                            <Image x:Name="AdImageBottom"
+                                   Stretch="UniformToFill"
+                                   Opacity="0" />
+                            <TextBlock x:Name="AdPlaceholderBottom"
+                                       Text="Brak reklam"
+                                       Foreground="#9FB4D1"
+                                       FontSize="24"
+                                       TextAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       HorizontalAlignment="Center" />
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <Border BorderBrush="#4E6C95"
+                        BorderThickness="2"
+                        CornerRadius="12"
+                        Background="#0E223F"
+                        Margin="0,12,0,0"
+                        Padding="12">
+                    <StackPanel>
+                        <TextBlock Text="ZARZĄDZANIE REKLAMAMI"
+                                   Foreground="#CBD5E1"
+                                   FontWeight="SemiBold"
+                                   Margin="0,0,0,8" />
+
+                        <Button Content="Dodaj grafikę"
+                                Click="AddAdButton_Click"
+                                Padding="10,6"
+                                Margin="0,0,0,8"
+                                Background="#1D4ED8"
+                                Foreground="White"
+                                BorderBrush="#5B8EFF" />
+
+                        <ListBox x:Name="AdListBox"
+                                 DisplayMemberPath="DisplayName"
+                                 Height="150"
+                                 Margin="0,0,0,8"
+                                 Background="#0F1C34"
+                                 BorderBrush="#3C577C"
+                                 Foreground="#F8FAFC"
+                                 FontSize="14" />
+
+                        <WrapPanel>
+                            <Button Content="↑"
+                                    Width="40"
+                                    Margin="0,0,8,0"
+                                    Click="MoveAdUpButton_Click" />
+                            <Button Content="↓"
+                                    Width="40"
+                                    Margin="0,0,8,0"
+                                    Click="MoveAdDownButton_Click" />
+                            <Button Content="Usuń"
+                                    Click="DeleteAdButton_Click"
+                                    Padding="10,4" />
+                        </WrapPanel>
+                    </StackPanel>
                 </Border>
             </StackPanel>
         </Border>
