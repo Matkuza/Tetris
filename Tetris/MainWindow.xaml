@@ -1,12 +1,221 @@
-﻿<Window x:Class="Tetris.MainWindow"
+<Window x:Class="Tetris.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:Tetris"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid>
+        Title="Tetris"
+        WindowState="Maximized"
+        WindowStyle="None"
+        Background="#050816"
+        KeyDown="Window_KeyDown"
+        SizeChanged="Window_SizeChanged">
+    <Grid x:Name="RootGrid" Margin="14">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="600" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="450" />
+        </Grid.ColumnDefinitions>
 
+        <Border Grid.Column="0"
+                x:Name="AdBorder"
+                CornerRadius="16"
+                BorderBrush="#3A4A6A"
+                BorderThickness="2"
+                Background="#081A33"
+                Margin="10"
+                Padding="20">
+            <StackPanel>
+                <TextBlock Text="TECHNIKUM INFINITY"
+                           Foreground="#f9ff00"
+                           FontSize="26"
+                           FontWeight="Bold"
+                           Margin="0,0,0,12" />
+                <Border BorderBrush="#4E6C95" BorderThickness="2" CornerRadius="12" Background="#0E223F" Height="600">
+                    <Grid>
+                        <TextBlock Text="Miejsce na reklamy\nna pokazach"
+                                   Foreground="#9FB4D1"
+                                   FontSize="28"
+                                   TextAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Center" />
+                    </Grid>
+                </Border>
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Column="1"
+                x:Name="BoardBorder"
+                CornerRadius="16"
+                BorderBrush="#3A4A6A"
+                BorderThickness="2"
+                Background="#020617"
+                Margin="10"
+                VerticalAlignment="Stretch"
+                HorizontalAlignment="Center">
+            <Grid>
+                <Canvas x:Name="GameCanvas" />
+                <Canvas x:Name="EffectCanvas" IsHitTestVisible="False" />
+
+                <Border x:Name="GameOverOverlay"
+                        Visibility="Collapsed"
+                        Background="#D9B91C1C">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock Text="PRZEGRAŁEŚ"
+                                   Foreground="#FFE5E5"
+                                   FontSize="78"
+                                   FontWeight="Bold"
+                                   HorizontalAlignment="Center" />
+                        <TextBlock Text="Naciśnij SPACJĘ aby wrócić do menu"
+                                   Foreground="#FFE5E5"
+                                   FontSize="24"
+                                   Margin="0,14,0,0"
+                                   HorizontalAlignment="Center" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+
+        <StackPanel Grid.Column="2" Margin="18,10,10,10" VerticalAlignment="Stretch">
+            <TextBlock x:Name="TitleText"
+                       Text="TETRIS"
+                       Foreground="#E2E8F0"
+                       FontSize="56"
+                       FontWeight="Bold"
+                       Margin="0,0,0,12" />
+
+            <Border x:Name="NickCard" CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="16" Margin="0,0,0,12">
+                <StackPanel>
+                    <TextBlock Text="NICK" Foreground="#94A3B8" FontSize="13" />
+                    <TextBlock x:Name="PlayerNameText" Text="Gracz" Foreground="#F8FAFC" FontSize="26" FontWeight="SemiBold" />
+                </StackPanel>
+            </Border>
+
+            <Border x:Name="ScoreCard" CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="16" Margin="0,0,0,12">
+                <StackPanel>
+                    <TextBlock Text="WYNIK" Foreground="#94A3B8" FontSize="13" />
+                    <TextBlock x:Name="ScoreText" Text="0" Foreground="#F8FAFC" FontSize="32" FontWeight="SemiBold" />
+                </StackPanel>
+            </Border>
+
+            <Border x:Name="LevelCard" CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="16" Margin="0,0,0,12">
+                <StackPanel>
+                    <TextBlock Text="POZIOM" Foreground="#94A3B8" FontSize="13" />
+                    <TextBlock x:Name="LevelText" Text="1" Foreground="#F8FAFC" FontSize="30" FontWeight="SemiBold" />
+                </StackPanel>
+            </Border>
+
+            <Border x:Name="NextCard" CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="16" Margin="0,0,0,12">
+                <StackPanel>
+                    <TextBlock Text="NASTĘPNY KLOCEK" Foreground="#94A3B8" FontSize="13" Margin="0,0,0,8" />
+                    <Canvas x:Name="NextPieceCanvas" Width="130" Height="120" />
+                </StackPanel>
+            </Border>
+
+            <Border x:Name="HighScoreCard" CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="14" Margin="0,0,0,12">
+                <StackPanel>
+                    <TextBlock Text="TABELA WYNIKÓW" Foreground="#94A3B8" FontSize="14" Margin="0,0,0,8" FontWeight="SemiBold" />
+                    <ListBox x:Name="HighScoresListBox"
+                             Height="280"
+                             Background="#0F1C34"
+                             BorderBrush="#3C577C"
+                             Foreground="#F8FAFC"
+                             FontSize="20" />
+                </StackPanel>
+            </Border>
+
+            <Border x:Name="StatusCard" CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="14">
+                <TextBlock x:Name="StatusText"
+                           Text="Strzałki: ruch/obrót • Spacja: szybki zrzut • Esc: zamknij"
+                           Foreground="#A9B7CB"
+                           TextWrapping="Wrap"
+                           FontSize="14" />
+            </Border>
+        </StackPanel>
+
+        <Grid x:Name="StartMenuOverlay" Grid.ColumnSpan="3" Background="#CC020617">
+            <Border Width="560"
+                    Padding="26"
+                    CornerRadius="18"
+                    BorderBrush="#406089"
+                    BorderThickness="2"
+                    Background="#0A1224"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
+                <StackPanel>
+                    <TextBlock Text="START GRY"
+                               Foreground="#F8FAFC"
+                               FontSize="34"
+                               FontWeight="Bold"
+                               Margin="0,0,0,10" />
+                    <TextBlock Text="Ustaw nick i opcje"
+                               Foreground="#94A3B8"
+                               FontSize="16"
+                               Margin="0,0,0,18" />
+                    <!-- To jest komentarz -->
+                    <!-- To jest komentarz -->
+                    <!-- To jest komentarz -->
+                    <!-- To jest komentarz -->
+                    <!-- To jest komentarz -->
+                    <!-- To jest komentarz -->
+                    <TextBlock Text="Nick" Foreground="#CBD5E1" />
+                    <TextBox x:Name="NickTextBox"
+                             Text="Gracz"
+                             MaxLength="20"
+                             Margin="0,6,0,12"
+                             Padding="8"
+                             FontSize="15"
+                             Background="#0F1C34"
+                             Foreground="#F8FAFC"
+                             BorderBrush="#3C577C" />
+
+                    <TextBlock Text="Poziom startowy" Foreground="#CBD5E1" />
+                    <ComboBox x:Name="StartLevelComboBox"
+                              SelectedIndex="0"
+                              Margin="0,6,0,12"
+                              Padding="6"
+                              FontSize="15"
+                              Background="#0F1C34"
+                              Foreground="#F8FAFC"
+                              BorderBrush="#3C577C">
+                        <ComboBoxItem Content="1 - Wolny" />
+                        <ComboBoxItem Content="2 - Dynamiczny" />
+                        <ComboBoxItem Content="3 - Turbo" />
+                    </ComboBox>
+
+                    <TextBlock Text="Tryb kolorów" Foreground="#CBD5E1" />
+                    <ComboBox x:Name="ThemeComboBox"
+                              SelectedIndex="0"
+                              Margin="0,6,0,18"
+                              Padding="6"
+                              FontSize="15"
+                              Background="#0F1C34"
+                              Foreground="#F8FAFC"
+                              BorderBrush="#3C577C">
+                        <ComboBoxItem Content="Neon Arena" />
+                        <ComboBoxItem Content="Sunset Retro" />
+                    </ComboBox>
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Content="Wyjdź"
+                                Click="ExitButton_Click"
+                                Padding="16,8"
+                                Margin="0,0,10,0"
+                                FontSize="14"
+                                Background="#24344F"
+                                Foreground="#F8FAFC"
+                                BorderBrush="#4A648A" />
+                        <Button Content="Start"
+                                Click="StartButton_Click"
+                                Padding="22,8"
+                                FontSize="15"
+                                FontWeight="SemiBold"
+                                Background="#2563EB"
+                                Foreground="White"
+                                BorderBrush="#5B8EFF" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
     </Grid>
 </Window>
