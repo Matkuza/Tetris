@@ -378,6 +378,18 @@
                                                        FontWeight="SemiBold"
                                                        Margin="0,0,0,8" />
 
+                                            <TextBlock Text="Tryb kolejności" Foreground="#CBD5E1" />
+                                            <ComboBox x:Name="OrderModeComboBox"
+                                                      Margin="0,4,0,8"
+                                                      Padding="6"
+                                                      SelectedIndex="0"
+                                                      Background="#132647"
+                                                      Foreground="#F8FAFC"
+                                                      BorderBrush="#3C577C">
+                                                <ComboBoxItem Content="Po kolei" />
+                                                <ComboBoxItem Content="Losowo" />
+                                            </ComboBox>
+
                                             <TextBlock Text="Co ile sekund odświeżać harmonogram" Foreground="#CBD5E1" />
                                             <TextBox x:Name="RotationIntervalTextBox"
                                                      Margin="0,4,0,8"
