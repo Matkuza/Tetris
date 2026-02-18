@@ -139,7 +139,7 @@ public partial class MainWindow : Window
         var borderBrush = new SolidColorBrush(border);
         var titleBrush = new SolidColorBrush(titleColor);
 
-        foreach (var card in new[] { NickCard, ScoreCard, LevelCard, NextCard, HighScoreCard, StatusCard })
+        foreach (var card in (Border[])[NickCard, ScoreCard, LevelCard, NextCard, HighScoreCard, StatusCard])
         {
             card.Background = bgBrush;
             card.BorderBrush = borderBrush;
@@ -810,36 +810,74 @@ public partial class MainWindow : Window
         RotateAds();
     }
 
+    private Border? GetAdManagerPanel() => FindName("AdManagerPanel") as Border;
+    private StackPanel? GetAdManagerAuthPanel() => FindName("AdManagerAuthPanel") as StackPanel;
+    private StackPanel? GetAdManagerControls() => FindName("AdManagerControls") as StackPanel;
+    private PasswordBox? GetAdManagerPasswordBox() => FindName("AdManagerPasswordBox") as PasswordBox;
+    private TextBlock? GetAdManagerHintText() => FindName("AdManagerHintText") as TextBlock;
+
     private void ResetAdManagerUi()
     {
-        AdManagerPanel.Visibility = Visibility.Collapsed;
-        AdManagerAuthPanel.Visibility = Visibility.Visible;
-        AdManagerControls.Visibility = Visibility.Collapsed;
-        AdManagerPasswordBox.Password = string.Empty;
-        AdManagerHintText.Text = string.Empty;
+        var panel = GetAdManagerPanel();
+        var authPanel = GetAdManagerAuthPanel();
+        var controls = GetAdManagerControls();
+        var passwordBox = GetAdManagerPasswordBox();
+        var hintText = GetAdManagerHintText();
+
+        if (panel is null || authPanel is null || controls is null || passwordBox is null || hintText is null)
+        {
+            return;
+        }
+
+        panel.Visibility = Visibility.Collapsed;
+        authPanel.Visibility = Visibility.Visible;
+        controls.Visibility = Visibility.Collapsed;
+        passwordBox.Password = string.Empty;
+        hintText.Text = string.Empty;
     }
 
     private void OpenAdManagerButton_Click(object sender, RoutedEventArgs e)
     {
-        AdManagerPanel.Visibility = Visibility.Visible;
-        AdManagerAuthPanel.Visibility = Visibility.Visible;
-        AdManagerControls.Visibility = Visibility.Collapsed;
-        AdManagerPasswordBox.Password = string.Empty;
-        AdManagerHintText.Text = string.Empty;
-        AdManagerPasswordBox.Focus();
+        var panel = GetAdManagerPanel();
+        var authPanel = GetAdManagerAuthPanel();
+        var controls = GetAdManagerControls();
+        var passwordBox = GetAdManagerPasswordBox();
+        var hintText = GetAdManagerHintText();
+
+        if (panel is null || authPanel is null || controls is null || passwordBox is null || hintText is null)
+        {
+            return;
+        }
+
+        panel.Visibility = Visibility.Visible;
+        authPanel.Visibility = Visibility.Visible;
+        controls.Visibility = Visibility.Collapsed;
+        passwordBox.Password = string.Empty;
+        hintText.Text = string.Empty;
+        passwordBox.Focus();
     }
 
     private void UnlockAdManagerButton_Click(object sender, RoutedEventArgs e)
     {
-        if (AdManagerPasswordBox.Password != AdManagerPassword)
+        var authPanel = GetAdManagerAuthPanel();
+        var controls = GetAdManagerControls();
+        var passwordBox = GetAdManagerPasswordBox();
+        var hintText = GetAdManagerHintText();
+
+        if (authPanel is null || controls is null || passwordBox is null || hintText is null)
         {
-            AdManagerHintText.Text = "Błędne hasło";
             return;
         }
 
-        AdManagerHintText.Text = string.Empty;
-        AdManagerAuthPanel.Visibility = Visibility.Collapsed;
-        AdManagerControls.Visibility = Visibility.Visible;
+        if (passwordBox.Password != AdManagerPassword)
+        {
+            hintText.Text = "Błędne hasło";
+            return;
+        }
+
+        hintText.Text = string.Empty;
+        authPanel.Visibility = Visibility.Collapsed;
+        controls.Visibility = Visibility.Visible;
     }
 
     private void CloseAdManagerButton_Click(object sender, RoutedEventArgs e)
