@@ -1,1 +1,31 @@
-[]
+{
+  "DefaultAdDurationSeconds": 10,
+  "RotationIntervalSeconds": 1,
+  "OrderMode": 0,
+  "Ads": [
+    {
+      "FileName": "20260218_140942054.jpg",
+      "DisplayName": "kontakt.jpg",
+      "DurationSeconds": 10,
+      "Panels": 7
+    },
+    {
+      "FileName": "20260218_140948867.jpg",
+      "DisplayName": "logo infinity.jpg",
+      "DurationSeconds": 10,
+      "Panels": 7
+    },
+    {
+      "FileName": "20260218_140953771.jpg",
+      "DisplayName": "QR code.jpg",
+      "DurationSeconds": 10,
+      "Panels": 7
+    },
+    {
+      "FileName": "20260218_140957328.jpg",
+      "DisplayName": "socialmedia.jpg",
+      "DurationSeconds": 10,
+      "Panels": 7
+    }
+  ]
+}
