@@ -128,6 +128,7 @@ public partial class MainWindow : Window
 
         StartHighScoresListBox.ItemsSource = _highScoreRows;
         AdListBox.ItemsSource = _ads;
+        ShowStartMenuSection(StartMenuSection.NewGame);
 
         ConfigureAdStates();
         EnsureAdStorage();
@@ -824,6 +825,7 @@ public partial class MainWindow : Window
             {
                 GameOverOverlay.Visibility = Visibility.Collapsed;
                 StartMenuOverlay.Visibility = Visibility.Visible;
+                ShowStartMenuSection(StartMenuSection.NewGame);
                 ResetAdManagerUi();
                 _isGameStarted = false;
             }
@@ -1461,6 +1463,42 @@ public partial class MainWindow : Window
     private TextBox? GetRotationIntervalTextBox() => FindName("RotationIntervalTextBox") as TextBox;
     private TextBox? GetDefaultAdDurationTextBox() => FindName("DefaultAdDurationTextBox") as TextBox;
     private ComboBox? GetOrderModeComboBox() => FindName("OrderModeComboBox") as ComboBox;
+
+    private enum StartMenuSection
+    {
+        NewGame,
+        Highscore,
+        Settings
+    }
+
+    private void ShowStartMenuSection(StartMenuSection section)
+    {
+        NewGamePanel.Visibility = section == StartMenuSection.NewGame ? Visibility.Visible : Visibility.Collapsed;
+        HighscorePanel.Visibility = section == StartMenuSection.Highscore ? Visibility.Visible : Visibility.Collapsed;
+        SettingsPanel.Visibility = section == StartMenuSection.Settings ? Visibility.Visible : Visibility.Collapsed;
+
+        MenuNewGameButton.Background = section == StartMenuSection.NewGame ? new SolidColorBrush(Color.FromRgb(37, 99, 235)) : new SolidColorBrush(Color.FromRgb(29, 78, 216));
+        MenuHighscoreButton.Background = section == StartMenuSection.Highscore ? new SolidColorBrush(Color.FromRgb(37, 99, 235)) : new SolidColorBrush(Color.FromRgb(29, 78, 216));
+        MenuSettingsButton.Background = section == StartMenuSection.Settings ? new SolidColorBrush(Color.FromRgb(37, 99, 235)) : new SolidColorBrush(Color.FromRgb(29, 78, 216));
+    }
+
+    private void MenuNewGameButton_Click(object sender, RoutedEventArgs e)
+    {
+        PlayEffect("buttonClick");
+        ShowStartMenuSection(StartMenuSection.NewGame);
+    }
+
+    private void MenuHighscoreButton_Click(object sender, RoutedEventArgs e)
+    {
+        PlayEffect("buttonClick");
+        ShowStartMenuSection(StartMenuSection.Highscore);
+    }
+
+    private void MenuSettingsButton_Click(object sender, RoutedEventArgs e)
+    {
+        PlayEffect("buttonClick");
+        ShowStartMenuSection(StartMenuSection.Settings);
+    }
 
     private void ResetAdManagerUi()
     {

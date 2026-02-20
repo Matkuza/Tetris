@@ -198,331 +198,366 @@
                            FontSize="14" />
             </Border>
         </StackPanel>
-        <Grid x:Name="StartMenuOverlay" Grid.ColumnSpan="3" Background="#CC020617">
-            <Border Width="860"
-                    Height="860"
-                    Padding="26"
-                    CornerRadius="18"
-                    BorderBrush="#406089"
+        <Grid x:Name="StartMenuOverlay" Grid.ColumnSpan="3" Background="#0A1224" Panel.ZIndex="20">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Margin="0,40,0,12" HorizontalAlignment="Center">
+                <TextBlock Text="TETRIS"
+                           Foreground="#F8FAFC"
+                           FontSize="72"
+                           FontWeight="Black"
+                           HorizontalAlignment="Center" />
+                <TextBlock Text="MENU GŁÓWNE"
+                           Foreground="#94A3B8"
+                           FontSize="20"
+                           HorizontalAlignment="Center" />
+            </StackPanel>
+
+            <Border Grid.Row="1"
+                    Margin="80,18,80,20"
+                    CornerRadius="24"
+                    BorderBrush="#355071"
                     BorderThickness="2"
-                    Background="#0A1224"
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center">
-                <StackPanel>
-                    <TextBlock Text="START GRY"
-                               Foreground="#F8FAFC"
-                               FontSize="34"
-                               FontWeight="Bold"
-                               Margin="0,0,0,10" />
-                    <TextBlock Text="Ustaw nick i opcje"
-                               Foreground="#94A3B8"
-                               FontSize="16"
-                               Margin="0,0,0,18" />
+                    Background="#0F1C34"
+                    Padding="28">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="18" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
 
-                    <TabControl Background="#0F1C34"
-                                BorderBrush="#3C577C"
-                                Foreground="#F8FAFC"
-                                Height="700">
-                        <TabItem Header="Nowa gra">
-                            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                <StackPanel Margin="16,12,16,16">
-                                    <TextBlock Text="Nick" Foreground="#CBD5E1" />
-                                    <TextBox x:Name="NickTextBox"
-                                             Text="Gracz"
-                                             MaxLength="20"
-                                             Margin="0,6,0,12"
-                                             Padding="8"
-                                             FontSize="15"
-                                             Background="#0F1C34"
-                                             Foreground="#F8FAFC"
-                                             BorderBrush="#3C577C" />
+                    <UniformGrid Grid.Row="0" Columns="3" Margin="0,0,0,8">
+                        <Button x:Name="MenuNewGameButton"
+                                Content="NOWA GRA"
+                                Click="MenuNewGameButton_Click"
+                                FontSize="24"
+                                FontWeight="Bold"
+                                Height="70"
+                                Margin="8,0"
+                                Background="#2563EB"
+                                Foreground="White"
+                                BorderBrush="#5B8EFF" />
+                        <Button x:Name="MenuHighscoreButton"
+                                Content="HIGHSCORE"
+                                Click="MenuHighscoreButton_Click"
+                                FontSize="24"
+                                FontWeight="Bold"
+                                Height="70"
+                                Margin="8,0"
+                                Background="#1D4ED8"
+                                Foreground="White"
+                                BorderBrush="#5B8EFF" />
+                        <Button x:Name="MenuSettingsButton"
+                                Content="SETTINGS"
+                                Click="MenuSettingsButton_Click"
+                                FontSize="24"
+                                FontWeight="Bold"
+                                Height="70"
+                                Margin="8,0"
+                                Background="#1D4ED8"
+                                Foreground="White"
+                                BorderBrush="#5B8EFF" />
+                    </UniformGrid>
 
-                                    <TextBlock Text="Poziom startowy" Foreground="#CBD5E1" />
-                                    <ComboBox x:Name="StartLevelComboBox"
-                                              SelectedIndex="0"
-                                              Margin="0,6,0,12"
-                                              Padding="6"
-                                              FontSize="15"
-                                              Background="#0F1C34"
-                                              Foreground="#F8FAFC"
-                                              BorderBrush="#3C577C">
-                                        <ComboBoxItem Content="1 - Wolny" />
-                                        <ComboBoxItem Content="2 - Dynamiczny" />
-                                        <ComboBoxItem Content="3 - Turbo" />
-                                    </ComboBox>
+                    <Grid Grid.Row="2">
+                        <Grid.Resources>
+                            <Style TargetType="ComboBoxItem">
+                                <Setter Property="Background" Value="#132647" />
+                                <Setter Property="Foreground" Value="#F8FAFC" />
+                            </Style>
+                        </Grid.Resources>
 
-                                    <TextBlock Text="Tryb kolorów" Foreground="#CBD5E1" />
-                                    <ComboBox x:Name="ThemeComboBox"
-                                              SelectedIndex="0"
-                                              Margin="0,6,0,12"
-                                              Padding="6"
-                                              FontSize="15"
-                                              Background="#0F1C34"
-                                              Foreground="#F8FAFC"
-                                              BorderBrush="#3C577C">
-                                        <ComboBoxItem Content="Neon Arena" />
-                                        <ComboBoxItem Content="Sunset Retro" />
-                                    </ComboBox>
+                        <ScrollViewer x:Name="NewGamePanel" VerticalScrollBarVisibility="Auto">
+                            <StackPanel Margin="16,8,16,16">
+                                <TextBlock Text="Nick" Foreground="#CBD5E1" FontSize="18" />
+                                <TextBox x:Name="NickTextBox"
+                                         Text="Gracz"
+                                         MaxLength="20"
+                                         Margin="0,8,0,16"
+                                         Padding="10"
+                                         FontSize="18"
+                                         Background="#0A162C"
+                                         Foreground="#F8FAFC"
+                                         BorderBrush="#3C577C" />
 
-                                    <Grid Margin="0,0,0,18">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="12" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
+                                <TextBlock Text="Poziom startowy" Foreground="#CBD5E1" FontSize="18" />
+                                <ComboBox x:Name="StartLevelComboBox"
+                                          SelectedIndex="0"
+                                          Margin="0,8,0,16"
+                                          Padding="8"
+                                          FontSize="18"
+                                          Background="#0A162C"
+                                          Foreground="#F8FAFC"
+                                          BorderBrush="#3C577C">
+                                    <ComboBoxItem Content="1 - Wolny" />
+                                    <ComboBoxItem Content="2 - Dynamiczny" />
+                                    <ComboBoxItem Content="3 - Turbo" />
+                                </ComboBox>
 
-                                        <Border Grid.Column="0"
-                                                CornerRadius="8"
-                                                BorderBrush="#3C577C"
-                                                BorderThickness="1"
-                                                Background="#132647"
-                                                Padding="8">
-                                            <StackPanel>
-                                                <TextBlock Text="Muzyka"
-                                                           Foreground="#E2E8F0"
-                                                           FontSize="13"
-                                                           Margin="0,0,0,4" />
-                                                <Slider x:Name="MusicVolumeSlider"
-                                                        Minimum="0"
-                                                        Maximum="1"
-                                                        Value="0.6"
-                                                        TickFrequency="0.1"
-                                                        IsSnapToTickEnabled="False"
-                                                        ValueChanged="MusicVolumeSlider_ValueChanged" />
-                                            </StackPanel>
-                                        </Border>
+                                <TextBlock Text="Tryb kolorów" Foreground="#CBD5E1" FontSize="18" />
+                                <ComboBox x:Name="ThemeComboBox"
+                                          SelectedIndex="0"
+                                          Margin="0,8,0,16"
+                                          Padding="8"
+                                          FontSize="18"
+                                          Background="#0A162C"
+                                          Foreground="#F8FAFC"
+                                          BorderBrush="#3C577C">
+                                    <ComboBoxItem Content="Neon Arena" />
+                                    <ComboBoxItem Content="Sunset Retro" />
+                                </ComboBox>
 
-                                        <Border Grid.Column="2"
-                                                CornerRadius="8"
-                                                BorderBrush="#3C577C"
-                                                BorderThickness="1"
-                                                Background="#132647"
-                                                Padding="8">
-                                            <StackPanel>
-                                                <TextBlock Text="Efekty"
-                                                           Foreground="#E2E8F0"
-                                                           FontSize="13"
-                                                           Margin="0,0,0,4" />
-                                                <Slider x:Name="EffectsVolumeSlider"
-                                                        Minimum="0"
-                                                        Maximum="1"
-                                                        Value="0.8"
-                                                        TickFrequency="0.1"
-                                                        IsSnapToTickEnabled="False"
-                                                        ValueChanged="EffectsVolumeSlider_ValueChanged" />
-                                            </StackPanel>
-                                        </Border>
-                                    </Grid>
-
-                                    <Button Content="Opcje reklam (hasło)"
-                                            Click="OpenAdManagerButton_Click"
-                                            Padding="16,8"
-                                            FontSize="14"
-                                            Margin="0,0,0,12"
-                                            HorizontalAlignment="Left"
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+                                    <Button Content="Wyjdź"
+                                            Click="ExitButton_Click"
+                                            Padding="24,12"
+                                            Margin="0,0,12,0"
+                                            FontSize="18"
+                                            FontWeight="SemiBold"
                                             Background="#24344F"
                                             Foreground="#F8FAFC"
                                             BorderBrush="#4A648A" />
+                                    <Button Content="Start"
+                                            Click="StartButton_Click"
+                                            Padding="30,12"
+                                            FontSize="20"
+                                            FontWeight="Bold"
+                                            Background="#2563EB"
+                                            Foreground="White"
+                                            BorderBrush="#5B8EFF" />
+                                </StackPanel>
+                            </StackPanel>
+                        </ScrollViewer>
 
-                                    <Border x:Name="AdManagerPanel"
-                                            Visibility="Collapsed"
-                                            CornerRadius="12"
-                                            BorderBrush="#3C577C"
-                                            BorderThickness="2"
-                                            Background="#0F1C34"
-                                            Padding="12"
-                                            Margin="0,0,0,12">
-                                        <StackPanel>
-                                            <TextBlock Text="ZARZĄDZANIE REKLAMAMI"
-                                                       Foreground="#E2E8F0"
-                                                       FontWeight="SemiBold"
-                                                       Margin="0,0,0,8" />
+                        <Border x:Name="HighscorePanel" Visibility="Collapsed" Margin="16,8,16,16" CornerRadius="10" BorderBrush="#3C577C" BorderThickness="1" Background="#0A162C" Padding="16">
+                            <StackPanel>
+                                <TextBlock Text="NAJLEPSZE WYNIKI"
+                                           Foreground="#D7E4F6"
+                                           FontSize="28"
+                                           FontWeight="Bold"
+                                           Margin="0,0,0,14" />
+                                <ListBox x:Name="StartHighScoresListBox"
+                                         Height="560"
+                                         Background="#0A162C"
+                                         BorderBrush="#3C577C"
+                                         Foreground="#F8FAFC"
+                                         FontSize="26" />
+                            </StackPanel>
+                        </Border>
 
-                                            <StackPanel x:Name="AdManagerAuthPanel">
-                                                <TextBlock Text="Podaj hasło" Foreground="#CBD5E1" />
-                                                <PasswordBox x:Name="AdManagerPasswordBox"
-                                                             Margin="0,6,0,8"
-                                                             Padding="8"
-                                                             Background="#132647"
-                                                             Foreground="#F8FAFC"
-                                                             BorderBrush="#3C577C" />
-                                                <StackPanel Orientation="Horizontal">
-                                                    <Button Content="Odblokuj"
-                                                            Click="UnlockAdManagerButton_Click"
-                                                            Padding="12,6"
-                                                            Margin="0,0,8,0" />
-                                                    <Button Content="Zamknij"
-                                                            Click="CloseAdManagerButton_Click"
-                                                            Padding="12,6" />
-                                                </StackPanel>
-                                                <TextBlock x:Name="AdManagerHintText"
-                                                           Margin="0,8,0,0"
-                                                           Foreground="#FCA5A5"
-                                                           Text="" />
-                                            </StackPanel>
+                        <ScrollViewer x:Name="SettingsPanel" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                            <StackPanel Margin="16,8,16,16">
+                                <TextBlock Text="Ustawienia dźwięku" Foreground="#D7E4F6" FontSize="28" FontWeight="Bold" Margin="0,0,0,10" />
 
-                                            <StackPanel x:Name="AdManagerControls" Visibility="Collapsed">
-                                                <Grid Margin="0,8,0,0">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="1.1*" />
-                                                        <ColumnDefinition Width="10" />
-                                                        <ColumnDefinition Width="*" />
-                                                    </Grid.ColumnDefinitions>
-
-                                                    <StackPanel Grid.Column="0">
-                                                        <Button Content="Dodaj grafikę"
-                                                                Click="AddAdButton_Click"
-                                                                Padding="10,6"
-                                                                Margin="0,0,0,8"
-                                                                Background="#1D4ED8"
-                                                                Foreground="White"
-                                                                BorderBrush="#5B8EFF" />
-
-                                                        <ListBox x:Name="AdListBox"
-                                                                 DisplayMemberPath="DisplayName"
-                                                                 SelectionChanged="AdListBox_SelectionChanged"
-                                                                 Height="190"
-                                                                 Margin="0,0,0,8"
-                                                                 Background="#0F1C34"
-                                                                 BorderBrush="#3C577C"
-                                                                 Foreground="#F8FAFC"
-                                                                 FontSize="14" />
-
-                                                        <WrapPanel>
-                                                            <Button Content="↑"
-                                                                    Width="40"
-                                                                    Margin="0,0,8,0"
-                                                                    Click="MoveAdUpButton_Click" />
-                                                            <Button Content="↓"
-                                                                    Width="40"
-                                                                    Margin="0,0,8,0"
-                                                                    Click="MoveAdDownButton_Click" />
-                                                            <Button Content="Usuń"
-                                                                    Click="DeleteAdButton_Click"
-                                                                    Padding="10,4" />
-                                                        </WrapPanel>
-                                                    </StackPanel>
-
-                                                    <Border Grid.Column="2"
-                                                            CornerRadius="10"
-                                                            BorderBrush="#355071"
-                                                            BorderThickness="1"
-                                                            Padding="10"
-                                                            Background="#10203C">
-                                                        <StackPanel>
-                                                            <TextBlock Text="USTAWIENIA WYBRANEJ GRAFIKI"
-                                                                       Foreground="#D7E4F6"
-                                                                       FontWeight="SemiBold"
-                                                                       Margin="0,0,0,8" />
-
-                                                            <TextBlock Text="Czas wyświetlania (sek)" Foreground="#CBD5E1" />
-                                                            <TextBox x:Name="SelectedAdDurationTextBox"
-                                                                     Margin="0,4,0,8"
-                                                                     Padding="6"
-                                                                     Text="10"
-                                                                     Background="#132647"
-                                                                     Foreground="#F8FAFC"
-                                                                     BorderBrush="#3C577C" />
-
-                                                            <TextBlock Text="Pokaż na panelach" Foreground="#CBD5E1" />
-                                                            <WrapPanel Margin="0,4,0,8">
-                                                                <CheckBox x:Name="SelectedAdTopCheckBox" Content="Panel 1" Margin="0,0,12,0" Foreground="#E2E8F0" />
-                                                                <CheckBox x:Name="SelectedAdMiddleCheckBox" Content="Panel 2" Margin="0,0,12,0" Foreground="#E2E8F0" />
-                                                                <CheckBox x:Name="SelectedAdBottomCheckBox" Content="Panel 3" Foreground="#E2E8F0" />
-                                                            </WrapPanel>
-
-                                                            <Button Content="Zapisz ustawienia grafiki"
-                                                                    Click="SaveSelectedAdSettingsButton_Click"
-                                                                    Padding="10,6"
-                                                                    Margin="0,0,0,14" />
-
-                                                            <TextBlock Text="USTAWIENIA GLOBALNE"
-                                                                       Foreground="#D7E4F6"
-                                                                       FontWeight="SemiBold"
-                                                                       Margin="0,0,0,8" />
-
-                                                            <TextBlock Text="Tryb kolejności" Foreground="#CBD5E1" />
-                                                            <ComboBox x:Name="OrderModeComboBox"
-                                                                      Margin="0,4,0,8"
-                                                                      Padding="6"
-                                                                      SelectedIndex="0"
-                                                                      Background="#132647"
-                                                                      Foreground="#F8FAFC"
-                                                                      BorderBrush="#3C577C">
-                                                                <ComboBoxItem Content="Po kolei" />
-                                                                <ComboBoxItem Content="Losowo" />
-                                                            </ComboBox>
-
-                                                            <TextBlock Text="Co ile sekund odświeżać harmonogram" Foreground="#CBD5E1" />
-                                                            <TextBox x:Name="RotationIntervalTextBox"
-                                                                     Margin="0,4,0,8"
-                                                                     Padding="6"
-                                                                     Text="1"
-                                                                     Background="#132647"
-                                                                     Foreground="#F8FAFC"
-                                                                     BorderBrush="#3C577C" />
-
-                                                            <TextBlock Text="Domyślny czas dla nowych grafik (sek)" Foreground="#CBD5E1" />
-                                                            <TextBox x:Name="DefaultAdDurationTextBox"
-                                                                     Margin="0,4,0,8"
-                                                                     Padding="6"
-                                                                     Text="10"
-                                                                     Background="#132647"
-                                                                     Foreground="#F8FAFC"
-                                                                     BorderBrush="#3C577C" />
-
-                                                            <Button Content="Zapisz ustawienia globalne"
-                                                                    Click="SaveGlobalAdSettingsButton_Click"
-                                                                    Padding="10,6" />
-                                                        </StackPanel>
-                                                    </Border>
-                                                </Grid>
-                                            </StackPanel>
-                                        </StackPanel>
-                                    </Border>
-
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                        <Button Content="Wyjdź"
-                                                Click="ExitButton_Click"
-                                                Padding="16,8"
-                                                Margin="0,0,10,0"
-                                                FontSize="14"
-                                                Background="#24344F"
-                                                Foreground="#F8FAFC"
-                                                BorderBrush="#4A648A" />
-                                        <Button Content="Start"
-                                                Click="StartButton_Click"
-                                                Padding="22,8"
-                                                FontSize="15"
-                                                FontWeight="SemiBold"
-                                                Background="#2563EB"
-                                                Foreground="White"
-                                                BorderBrush="#5B8EFF" />
+                                <Border CornerRadius="10" BorderBrush="#3C577C" BorderThickness="1" Background="#132647" Padding="12" Margin="0,0,0,12">
+                                    <StackPanel>
+                                        <TextBlock Text="Muzyka" Foreground="#E2E8F0" FontSize="17" Margin="0,0,0,4" />
+                                        <Slider x:Name="MusicVolumeSlider"
+                                                Minimum="0"
+                                                Maximum="1"
+                                                Value="0.6"
+                                                TickFrequency="0.1"
+                                                IsSnapToTickEnabled="False"
+                                                ValueChanged="MusicVolumeSlider_ValueChanged" />
                                     </StackPanel>
-                                </StackPanel>
-                            </ScrollViewer>
-                        </TabItem>
+                                </Border>
 
-                        <TabItem Header="Highscore">
-                            <Border Margin="16" CornerRadius="10" BorderBrush="#3C577C" BorderThickness="1" Background="#0F1C34" Padding="12">
-                                <StackPanel>
-                                    <TextBlock Text="NAJLEPSZE WYNIKI"
-                                               Foreground="#D7E4F6"
-                                               FontSize="18"
-                                               FontWeight="SemiBold"
-                                               Margin="0,0,0,10" />
-                                    <ListBox x:Name="StartHighScoresListBox"
-                                             Height="520"
-                                             Background="#0A162C"
-                                             BorderBrush="#3C577C"
-                                             Foreground="#F8FAFC"
-                                             FontSize="24" />
-                                </StackPanel>
-                            </Border>
-                        </TabItem>
-                    </TabControl>
-                </StackPanel>
+                                <Border CornerRadius="10" BorderBrush="#3C577C" BorderThickness="1" Background="#132647" Padding="12" Margin="0,0,0,16">
+                                    <StackPanel>
+                                        <TextBlock Text="Efekty" Foreground="#E2E8F0" FontSize="17" Margin="0,0,0,4" />
+                                        <Slider x:Name="EffectsVolumeSlider"
+                                                Minimum="0"
+                                                Maximum="1"
+                                                Value="0.8"
+                                                TickFrequency="0.1"
+                                                IsSnapToTickEnabled="False"
+                                                ValueChanged="EffectsVolumeSlider_ValueChanged" />
+                                    </StackPanel>
+                                </Border>
+
+                                <Button Content="Opcje reklam (hasło)"
+                                        Click="OpenAdManagerButton_Click"
+                                        Padding="16,10"
+                                        FontSize="16"
+                                        Margin="0,0,0,12"
+                                        HorizontalAlignment="Left"
+                                        Background="#24344F"
+                                        Foreground="#F8FAFC"
+                                        BorderBrush="#4A648A" />
+
+                                <Border x:Name="AdManagerPanel"
+                                        Visibility="Collapsed"
+                                        CornerRadius="12"
+                                        BorderBrush="#3C577C"
+                                        BorderThickness="2"
+                                        Background="#0F1C34"
+                                        Padding="12"
+                                        Margin="0,0,0,12">
+                                    <StackPanel>
+                                        <TextBlock Text="ZARZĄDZANIE REKLAMAMI"
+                                                   Foreground="#E2E8F0"
+                                                   FontWeight="SemiBold"
+                                                   Margin="0,0,0,8" />
+
+                                        <StackPanel x:Name="AdManagerAuthPanel">
+                                            <TextBlock Text="Podaj hasło" Foreground="#CBD5E1" />
+                                            <PasswordBox x:Name="AdManagerPasswordBox"
+                                                         Margin="0,6,0,8"
+                                                         Padding="8"
+                                                         Background="#132647"
+                                                         Foreground="#F8FAFC"
+                                                         BorderBrush="#3C577C" />
+                                            <StackPanel Orientation="Horizontal">
+                                                <Button Content="Odblokuj"
+                                                        Click="UnlockAdManagerButton_Click"
+                                                        Padding="12,6"
+                                                        Margin="0,0,8,0" />
+                                                <Button Content="Zamknij"
+                                                        Click="CloseAdManagerButton_Click"
+                                                        Padding="12,6" />
+                                            </StackPanel>
+                                            <TextBlock x:Name="AdManagerHintText"
+                                                       Margin="0,8,0,0"
+                                                       Foreground="#FCA5A5"
+                                                       Text="" />
+                                        </StackPanel>
+
+                                        <StackPanel x:Name="AdManagerControls" Visibility="Collapsed">
+                                            <Grid Margin="0,8,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="1.1*" />
+                                                    <ColumnDefinition Width="10" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <StackPanel Grid.Column="0">
+                                                    <Button Content="Dodaj grafikę"
+                                                            Click="AddAdButton_Click"
+                                                            Padding="10,6"
+                                                            Margin="0,0,0,8"
+                                                            Background="#1D4ED8"
+                                                            Foreground="White"
+                                                            BorderBrush="#5B8EFF" />
+
+                                                    <ListBox x:Name="AdListBox"
+                                                             DisplayMemberPath="DisplayName"
+                                                             SelectionChanged="AdListBox_SelectionChanged"
+                                                             Height="190"
+                                                             Margin="0,0,0,8"
+                                                             Background="#0F1C34"
+                                                             BorderBrush="#3C577C"
+                                                             Foreground="#F8FAFC"
+                                                             FontSize="14" />
+
+                                                    <WrapPanel>
+                                                        <Button Content="↑"
+                                                                Width="40"
+                                                                Margin="0,0,8,0"
+                                                                Click="MoveAdUpButton_Click" />
+                                                        <Button Content="↓"
+                                                                Width="40"
+                                                                Margin="0,0,8,0"
+                                                                Click="MoveAdDownButton_Click" />
+                                                        <Button Content="Usuń"
+                                                                Click="DeleteAdButton_Click"
+                                                                Padding="10,4" />
+                                                    </WrapPanel>
+                                                </StackPanel>
+
+                                                <Border Grid.Column="2"
+                                                        CornerRadius="10"
+                                                        BorderBrush="#355071"
+                                                        BorderThickness="1"
+                                                        Padding="10"
+                                                        Background="#10203C">
+                                                    <StackPanel>
+                                                        <TextBlock Text="USTAWIENIA WYBRANEJ GRAFIKI"
+                                                                   Foreground="#D7E4F6"
+                                                                   FontWeight="SemiBold"
+                                                                   Margin="0,0,0,8" />
+
+                                                        <TextBlock Text="Czas wyświetlania (sek)" Foreground="#CBD5E1" />
+                                                        <TextBox x:Name="SelectedAdDurationTextBox"
+                                                                 Margin="0,4,0,8"
+                                                                 Padding="6"
+                                                                 Text="10"
+                                                                 Background="#132647"
+                                                                 Foreground="#F8FAFC"
+                                                                 BorderBrush="#3C577C" />
+
+                                                        <TextBlock Text="Pokaż na panelach" Foreground="#CBD5E1" />
+                                                        <WrapPanel Margin="0,4,0,8">
+                                                            <CheckBox x:Name="SelectedAdTopCheckBox" Content="Panel 1" Margin="0,0,12,0" Foreground="#E2E8F0" />
+                                                            <CheckBox x:Name="SelectedAdMiddleCheckBox" Content="Panel 2" Margin="0,0,12,0" Foreground="#E2E8F0" />
+                                                            <CheckBox x:Name="SelectedAdBottomCheckBox" Content="Panel 3" Foreground="#E2E8F0" />
+                                                        </WrapPanel>
+
+                                                        <Button Content="Zapisz ustawienia grafiki"
+                                                                Click="SaveSelectedAdSettingsButton_Click"
+                                                                Padding="10,6"
+                                                                Margin="0,0,0,14" />
+
+                                                        <TextBlock Text="USTAWIENIA GLOBALNE"
+                                                                   Foreground="#D7E4F6"
+                                                                   FontWeight="SemiBold"
+                                                                   Margin="0,0,0,8" />
+
+                                                        <TextBlock Text="Tryb kolejności" Foreground="#CBD5E1" />
+                                                        <ComboBox x:Name="OrderModeComboBox"
+                                                                  Margin="0,4,0,8"
+                                                                  Padding="6"
+                                                                  SelectedIndex="0"
+                                                                  Background="#132647"
+                                                                  Foreground="#F8FAFC"
+                                                                  BorderBrush="#3C577C">
+                                                            <ComboBoxItem Content="Po kolei" />
+                                                            <ComboBoxItem Content="Losowo" />
+                                                        </ComboBox>
+
+                                                        <TextBlock Text="Co ile sekund odświeżać harmonogram" Foreground="#CBD5E1" />
+                                                        <TextBox x:Name="RotationIntervalTextBox"
+                                                                 Margin="0,4,0,8"
+                                                                 Padding="6"
+                                                                 Text="1"
+                                                                 Background="#132647"
+                                                                 Foreground="#F8FAFC"
+                                                                 BorderBrush="#3C577C" />
+
+                                                        <TextBlock Text="Domyślny czas dla nowych grafik (sek)" Foreground="#CBD5E1" />
+                                                        <TextBox x:Name="DefaultAdDurationTextBox"
+                                                                 Margin="0,4,0,8"
+                                                                 Padding="6"
+                                                                 Text="10"
+                                                                 Background="#132647"
+                                                                 Foreground="#F8FAFC"
+                                                                 BorderBrush="#3C577C" />
+
+                                                        <Button Content="Zapisz ustawienia globalne"
+                                                                Click="SaveGlobalAdSettingsButton_Click"
+                                                                Padding="10,6" />
+                                                    </StackPanel>
+                                                </Border>
+                                            </Grid>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Grid>
+                </Grid>
             </Border>
+
+            <TextBlock Grid.Row="2"
+                       Text="Esc: zamknij grę"
+                       Foreground="#64748B"
+                       FontSize="14"
+                       HorizontalAlignment="Center"
+                       Margin="0,0,0,20" />
         </Grid>
 
     </Grid>
