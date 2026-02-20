@@ -126,7 +126,7 @@ public partial class MainWindow : Window
         };
         _backgroundMusicPlayer.Volume = ScaleVolume(_musicVolume, MaxMusicOutputVolume);
 
-        HighScoresListBox.ItemsSource = _highScoreRows;
+        StartHighScoresListBox.ItemsSource = _highScoreRows;
         AdListBox.ItemsSource = _ads;
 
         ConfigureAdStates();
@@ -284,15 +284,15 @@ public partial class MainWindow : Window
         var borderBrush = new SolidColorBrush(border);
         var titleBrush = new SolidColorBrush(titleColor);
 
-        foreach (var card in (Border[])[NickCard, ScoreCard, LevelCard, NextCard, HoldCard, HighScoreCard, StatusCard])
+        foreach (var card in (Border[])[NickCard, ScoreCard, LevelCard, NextCard, HoldCard, StatusCard])
         {
             card.Background = bgBrush;
             card.BorderBrush = borderBrush;
         }
 
         TitleText.Foreground = titleBrush;
-        HighScoresListBox.BorderBrush = borderBrush;
-        HighScoresListBox.Background = new SolidColorBrush(Color.FromArgb(90, bg.R, bg.G, bg.B));
+        StartHighScoresListBox.BorderBrush = borderBrush;
+        StartHighScoresListBox.Background = new SolidColorBrush(Color.FromArgb(90, bg.R, bg.G, bg.B));
     }
 
     private void StartNewGame()
