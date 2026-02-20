@@ -9,6 +9,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
+using System.Windows.Media.Effects;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 using Microsoft.Win32;
@@ -36,6 +37,7 @@ public partial class MainWindow : Window
     private readonly List<ScoreEntry> _highScores = [];
     private readonly ObservableCollection<AdEntry> _ads = [];
     private readonly DispatcherTimer _adTimer;
+    private readonly DispatcherTimer _visualFxTimer;
     private readonly Dictionary<AdPanel, AdPlaybackState> _adStates = new();
 
     private readonly string _adStorageFolder;
@@ -67,6 +69,7 @@ public partial class MainWindow : Window
     private bool _isSurvivalMode;
     private int _survivalTickCounter;
     private double _cellSize = 36;
+    private bool _isFadeThemeActive;
 
     private readonly MediaPlayer _backgroundMusicPlayer = new();
     private readonly Dictionary<string, Uri> _soundUris;
@@ -92,6 +95,13 @@ public partial class MainWindow : Window
         Color.FromRgb(255, 167, 38)
     ];
 
+    private static readonly Color[] FadePalette =
+    [
+        Color.FromRgb(0, 245, 255), Color.FromRgb(88, 101, 242), Color.FromRgb(255, 0, 204),
+        Color.FromRgb(255, 95, 109), Color.FromRgb(255, 200, 87), Color.FromRgb(57, 255, 20),
+        Color.FromRgb(153, 102, 255)
+    ];
+
     private Brush[] _activePaletteBrushes = [];
 
     private static readonly Point[][] PieceDefinitions =
@@ -112,6 +122,15 @@ public partial class MainWindow : Window
         _timer.Tick += (_, _) => Tick();
         _adTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _adTimer.Tick += (_, _) => RotateAds();
+        _visualFxTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(90) };
+        _visualFxTimer.Tick += (_, _) =>
+        {
+            if (_isFadeThemeActive)
+            {
+                Draw();
+                DrawNextPiece();
+            }
+        };
 
         _adStorageFolder = ResolveAdStoragePath();
         _adManifestPath = IOPath.Combine(_adStorageFolder, "ads.json");
@@ -253,30 +272,105 @@ public partial class MainWindow : Window
 
     private void ApplyTheme()
     {
-        if (ThemeComboBox.SelectedIndex == 1)
+        _isFadeThemeActive = ThemeComboBox.SelectedIndex == 2;
+        if (_isFadeThemeActive)
         {
-            _activePaletteBrushes = RetroPalette.Select(c => (Brush)new SolidColorBrush(c)).ToArray();
-            Background = new SolidColorBrush(Color.FromRgb(30, 10, 16));
-            _emptyCellColor = Color.FromRgb(56, 20, 28);
-            SetCardTheme(Color.FromRgb(73, 33, 44), Color.FromRgb(109, 60, 77), Color.FromRgb(248, 224, 193));
-            AdBorder.Background = new SolidColorBrush(Color.FromRgb(61, 28, 40));
-            AdBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(126, 74, 91));
-            BoardBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(168, 109, 133));
-            BoardBorder.Background = new SolidColorBrush(Color.FromRgb(37, 12, 20));
+            _activePaletteBrushes = CreateAnimatedFadeBrushes();
+            Background = new SolidColorBrush(Color.FromRgb(4, 8, 24));
+            _emptyCellColor = Color.FromRgb(14, 18, 42);
+            SetCardTheme(Color.FromRgb(10, 18, 44), Color.FromRgb(70, 108, 196), Color.FromRgb(228, 244, 255));
+            AdBorder.Background = new SolidColorBrush(Color.FromRgb(11, 28, 58));
+            AdBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(92, 132, 226));
+            BoardBorder.Background = new SolidColorBrush(Color.FromRgb(5, 9, 34));
+            ApplyBoardGlowAnimation();
+            _visualFxTimer.Start();
         }
         else
         {
-            _activePaletteBrushes = NeonPalette.Select(c => (Brush)new SolidColorBrush(c)).ToArray();
-            Background = new SolidColorBrush(Color.FromRgb(5, 8, 22));
-            _emptyCellColor = Color.FromRgb(12, 20, 38);
-            SetCardTheme(Color.FromRgb(9, 18, 36), Color.FromRgb(50, 67, 95), Color.FromRgb(230, 238, 250));
-            AdBorder.Background = new SolidColorBrush(Color.FromRgb(8, 26, 51));
-            AdBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(58, 74, 106));
-            BoardBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(58, 74, 106));
-            BoardBorder.Background = new SolidColorBrush(Color.FromRgb(2, 6, 23));
+            _visualFxTimer.Stop();
+            BoardBorder.Effect = null;
+            if (ThemeComboBox.SelectedIndex == 1)
+            {
+                _activePaletteBrushes = RetroPalette.Select(c => (Brush)new SolidColorBrush(c)).ToArray();
+                Background = new SolidColorBrush(Color.FromRgb(30, 10, 16));
+                _emptyCellColor = Color.FromRgb(56, 20, 28);
+                SetCardTheme(Color.FromRgb(73, 33, 44), Color.FromRgb(109, 60, 77), Color.FromRgb(248, 224, 193));
+                AdBorder.Background = new SolidColorBrush(Color.FromRgb(61, 28, 40));
+                AdBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(126, 74, 91));
+                BoardBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(168, 109, 133));
+                BoardBorder.Background = new SolidColorBrush(Color.FromRgb(37, 12, 20));
+            }
+            else
+            {
+                _activePaletteBrushes = NeonPalette.Select(c => (Brush)new SolidColorBrush(c)).ToArray();
+                Background = new SolidColorBrush(Color.FromRgb(5, 8, 22));
+                _emptyCellColor = Color.FromRgb(12, 20, 38);
+                SetCardTheme(Color.FromRgb(9, 18, 36), Color.FromRgb(50, 67, 95), Color.FromRgb(230, 238, 250));
+                AdBorder.Background = new SolidColorBrush(Color.FromRgb(8, 26, 51));
+                AdBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(58, 74, 106));
+                BoardBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(58, 74, 106));
+                BoardBorder.Background = new SolidColorBrush(Color.FromRgb(2, 6, 23));
+            }
         }
 
         Draw();
+    }
+
+    private Brush[] CreateAnimatedFadeBrushes()
+    {
+        var brushes = new Brush[FadePalette.Length];
+        for (var i = 0; i < FadePalette.Length; i++)
+        {
+            var from = FadePalette[i];
+            var to = FadePalette[(i + 1) % FadePalette.Length];
+            var brush = new SolidColorBrush(from);
+            var animation = new ColorAnimation
+            {
+                From = from,
+                To = to,
+                Duration = TimeSpan.FromMilliseconds(700 + i * 120),
+                AutoReverse = true,
+                RepeatBehavior = RepeatBehavior.Forever,
+                EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
+            };
+
+            brush.BeginAnimation(SolidColorBrush.ColorProperty, animation);
+            brushes[i] = brush;
+        }
+
+        return brushes;
+    }
+
+    private void ApplyBoardGlowAnimation()
+    {
+        var borderBrush = new SolidColorBrush(FadePalette[0]);
+        BoardBorder.BorderBrush = borderBrush;
+
+        var glow = new DropShadowEffect
+        {
+            BlurRadius = 26,
+            ShadowDepth = 0,
+            Color = FadePalette[2],
+            Opacity = 0.92
+        };
+
+        BoardBorder.Effect = glow;
+
+        var borderAnim = new ColorAnimationUsingKeyFrames { RepeatBehavior = RepeatBehavior.Forever, Duration = TimeSpan.FromSeconds(6) };
+        for (var i = 0; i < FadePalette.Length; i++)
+        {
+            borderAnim.KeyFrames.Add(new LinearColorKeyFrame(FadePalette[i], KeyTime.FromPercent((double)i / (FadePalette.Length - 1))));
+        }
+
+        borderBrush.BeginAnimation(SolidColorBrush.ColorProperty, borderAnim);
+
+        var glowAnim = new ColorAnimationUsingKeyFrames { RepeatBehavior = RepeatBehavior.Forever, Duration = TimeSpan.FromSeconds(6) };
+        for (var i = 0; i < FadePalette.Length; i++)
+        {
+            glowAnim.KeyFrames.Add(new LinearColorKeyFrame(FadePalette[(i + 2) % FadePalette.Length], KeyTime.FromPercent((double)i / (FadePalette.Length - 1))));
+        }
+
+        glow.BeginAnimation(DropShadowEffect.ColorProperty, glowAnim);
     }
 
     private void SetCardTheme(Color bg, Color border, Color titleColor)
@@ -989,7 +1083,7 @@ public partial class MainWindow : Window
             NickTextBox.Text = string.IsNullOrWhiteSpace(settings.Nick) ? "Gracz" : settings.Nick;
             StartLevelComboBox.SelectedIndex = Math.Clamp(settings.StartLevelIndex, 0, 2);
             GameModeComboBox.SelectedIndex = Math.Clamp(settings.GameModeIndex, 0, 1);
-            ThemeComboBox.SelectedIndex = Math.Clamp(settings.ThemeIndex, 0, 1);
+            ThemeComboBox.SelectedIndex = Math.Clamp(settings.ThemeIndex, 0, 2);
             MusicVolumeSlider.Value = Math.Clamp(settings.MusicVolume, 0, 1);
             EffectsVolumeSlider.Value = Math.Clamp(settings.EffectsVolume, 0, 1);
         }
