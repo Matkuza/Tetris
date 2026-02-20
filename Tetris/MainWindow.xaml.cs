@@ -25,15 +25,6 @@ public partial class MainWindow : Window
     private readonly Brush?[,] _board = new Brush?[BoardHeight, BoardWidth];
     private readonly Random _random = new();
     private readonly DispatcherTimer _timer;
-    private readonly ObservableCollection<string> _highScoreRows =
-    [
-        "1. --- 0",
-        "2. --- 0",
-        "3. --- 0",
-        "4. --- 0",
-        "5. --- 0"
-    ];
-
     private readonly List<ScoreEntry> _highScores = [];
     private readonly ObservableCollection<AdEntry> _ads = [];
     private readonly DispatcherTimer _adTimer;
@@ -70,6 +61,7 @@ public partial class MainWindow : Window
     private int _survivalTickCounter;
     private double _cellSize = 36;
     private bool _isFadeThemeActive;
+    private bool _isHighscoreUnlocked;
 
     private readonly MediaPlayer _backgroundMusicPlayer = new();
     private readonly Dictionary<string, Uri> _soundUris;
@@ -145,7 +137,6 @@ public partial class MainWindow : Window
         };
         _backgroundMusicPlayer.Volume = ScaleVolume(_musicVolume, MaxMusicOutputVolume);
 
-        StartHighScoresListBox.ItemsSource = _highScoreRows;
         AdListBox.ItemsSource = _ads;
         ShowStartMenuSection(StartMenuSection.NewGame);
 
@@ -378,11 +369,14 @@ public partial class MainWindow : Window
     private void ApplyFadeAccentAnimations()
     {
         ApplyGlowToBorder(AdBorder, 1, 22, 0.85);
-        ApplyGlowToBorder(NickCard, 2, 16, 0.65);
-        ApplyGlowToBorder(ScoreCard, 3, 16, 0.65);
-        ApplyGlowToBorder(LevelCard, 4, 16, 0.65);
-        ApplyGlowToBorder(NextCard, 5, 16, 0.65);
-        ApplyGlowToBorder(StatusCard, 6, 16, 0.65);
+        ApplyGlowToBorder(AdSlotTopBorder, 2, 14, 0.72);
+        ApplyGlowToBorder(AdSlotMiddleBorder, 3, 14, 0.72);
+        ApplyGlowToBorder(AdSlotBottomBorder, 4, 14, 0.72);
+        ApplyGlowToBorder(NickCard, 5, 16, 0.65);
+        ApplyGlowToBorder(ScoreCard, 6, 16, 0.65);
+        ApplyGlowToBorder(LevelCard, 7, 16, 0.65);
+        ApplyGlowToBorder(NextCard, 8, 16, 0.65);
+        ApplyGlowToBorder(StatusCard, 9, 16, 0.65);
     }
 
     private void ApplyGlowToBorder(Border target, int phase, double blurRadius, double opacity)
@@ -421,7 +415,7 @@ public partial class MainWindow : Window
 
     private void ClearFadeAccentEffects()
     {
-        foreach (var border in (Border[])[BoardBorder, AdBorder, NickCard, ScoreCard, LevelCard, NextCard, StatusCard])
+        foreach (var border in (Border[])[BoardBorder, AdBorder, AdSlotTopBorder, AdSlotMiddleBorder, AdSlotBottomBorder, NickCard, ScoreCard, LevelCard, NextCard, StatusCard])
         {
             border.Effect = null;
         }
@@ -558,18 +552,122 @@ public partial class MainWindow : Window
 
     private void RefreshHighScores()
     {
-        _highScoreRows.Clear();
+        StartHighScoresListBox.Items.Clear();
+
         for (var i = 0; i < 5; i++)
         {
-            if (i < _highScores.Count)
+            var hasEntry = i < _highScores.Count;
+            var entry = hasEntry ? _highScores[i] : new ScoreEntry("---", 0);
+
+            var rankText = new TextBlock
             {
-                var entry = _highScores[i];
-                _highScoreRows.Add($"{i + 1}. {entry.Name} - {entry.Points}");
-            }
-            else
+                Text = $"#{i + 1}",
+                Foreground = new SolidColorBrush(Color.FromRgb(147, 197, 253)),
+                FontWeight = FontWeights.Bold,
+                Width = 56,
+                VerticalAlignment = VerticalAlignment.Center,
+                FontSize = 18
+            };
+
+            var nameText = new TextBlock
             {
-                _highScoreRows.Add($"{i + 1}. --- 0");
-            }
+                Text = entry.Name,
+                Foreground = new SolidColorBrush(Color.FromRgb(248, 250, 252)),
+                Width = 180,
+                VerticalAlignment = VerticalAlignment.Center,
+                FontSize = 20,
+                FontWeight = FontWeights.SemiBold
+            };
+
+            var pointsText = new TextBlock
+            {
+                Text = $"{entry.Points} pkt",
+                Foreground = new SolidColorBrush(Color.FromRgb(196, 181, 253)),
+                Width = 120,
+                VerticalAlignment = VerticalAlignment.Center,
+                FontSize = 18,
+                FontWeight = FontWeights.Bold
+            };
+
+            var editBox = new TextBox
+            {
+                Text = entry.Name,
+                Visibility = Visibility.Collapsed,
+                Width = 180,
+                Margin = new Thickness(0, 0, 8, 0),
+                Background = new SolidColorBrush(Color.FromRgb(19, 38, 71)),
+                Foreground = Brushes.White,
+                BorderBrush = new SolidColorBrush(Color.FromRgb(60, 87, 124)),
+                Padding = new Thickness(6, 4, 6, 4)
+            };
+
+            var applyButton = new Button
+            {
+                Content = "✔",
+                Tag = i,
+                Width = 34,
+                Height = 30,
+                Margin = new Thickness(0, 0, 8, 0),
+                FontWeight = FontWeights.Bold,
+                Background = new SolidColorBrush(Color.FromRgb(30, 64, 175)),
+                Foreground = Brushes.White,
+                BorderBrush = new SolidColorBrush(Color.FromRgb(91, 142, 255)),
+                Visibility = hasEntry ? Visibility.Visible : Visibility.Collapsed,
+                IsEnabled = hasEntry && _isHighscoreUnlocked
+            };
+            applyButton.Click += HighscoreApplyNameButton_Click;
+
+            var editButton = new Button
+            {
+                Content = "Edytuj",
+                Tag = i,
+                Margin = new Thickness(0, 0, 8, 0),
+                Padding = new Thickness(10, 4, 10, 4),
+                Background = new SolidColorBrush(Color.FromRgb(30, 64, 175)),
+                Foreground = Brushes.White,
+                BorderBrush = new SolidColorBrush(Color.FromRgb(91, 142, 255)),
+                Visibility = hasEntry ? Visibility.Visible : Visibility.Collapsed,
+                IsEnabled = hasEntry && _isHighscoreUnlocked
+            };
+            editButton.Click += HighscoreEditNameButton_Click;
+
+            var deleteButton = new Button
+            {
+                Content = "X",
+                Tag = i,
+                Width = 34,
+                Height = 30,
+                FontWeight = FontWeights.Bold,
+                Background = new SolidColorBrush(Color.FromRgb(127, 29, 29)),
+                Foreground = Brushes.White,
+                BorderBrush = new SolidColorBrush(Color.FromRgb(248, 113, 113)),
+                Visibility = hasEntry ? Visibility.Visible : Visibility.Collapsed,
+                IsEnabled = hasEntry && _isHighscoreUnlocked
+            };
+            deleteButton.Click += HighscoreDeleteButton_Click;
+
+            var row = new DockPanel { LastChildFill = false };
+            row.Children.Add(rankText);
+            row.Children.Add(nameText);
+            row.Children.Add(pointsText);
+            row.Children.Add(editBox);
+            row.Children.Add(applyButton);
+            row.Children.Add(editButton);
+            row.Children.Add(deleteButton);
+
+            var card = new Border
+            {
+                CornerRadius = new CornerRadius(8),
+                Background = new SolidColorBrush(i % 2 == 0 ? Color.FromRgb(12, 29, 54) : Color.FromRgb(16, 36, 66)),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(60, 87, 124)),
+                BorderThickness = new Thickness(1),
+                Padding = new Thickness(10, 8, 10, 8),
+                Margin = new Thickness(0, 0, 0, 8),
+                Child = row,
+                Tag = editBox
+            };
+
+            StartHighScoresListBox.Items.Add(card);
         }
     }
 
@@ -1617,6 +1715,7 @@ public partial class MainWindow : Window
     {
         PlayEffect("buttonClick");
         HighscoreManageHintText.Text = string.Empty;
+        HighscoreAuthStatusText.Text = _isHighscoreUnlocked ? "Tryb edycji aktywny." : "Tryb tylko podglądu. Zatwierdź hasło, aby edytować.";
         ShowStartMenuSection(StartMenuSection.Highscore);
     }
 
@@ -1626,19 +1725,49 @@ public partial class MainWindow : Window
         ShowStartMenuSection(StartMenuSection.Settings);
     }
 
-    private void DeleteSelectedHighscoreButton_Click(object sender, RoutedEventArgs e)
+    private bool EnsureHighscoreUnlocked()
+    {
+        if (_isHighscoreUnlocked)
+        {
+            return true;
+        }
+
+        HighscoreManageHintText.Text = "Najpierw zatwierdź hasło, aby zarządzać rekordami.";
+        return false;
+    }
+
+    private void UnlockHighscoreActionsButton_Click(object sender, RoutedEventArgs e)
     {
         PlayEffect("buttonClick");
         if (HighscorePasswordBox.Password != AdManagerPassword)
         {
-            HighscoreManageHintText.Text = "Błędne hasło";
+            _isHighscoreUnlocked = false;
+            HighscoreAuthStatusText.Text = "❌ Błędne hasło";
+            HighscoreAuthStatusText.Foreground = new SolidColorBrush(Color.FromRgb(252, 165, 165));
+            HighscoreManageHintText.Text = "Hasło niepoprawne. Edycja zablokowana.";
+            RefreshHighScores();
             return;
         }
 
-        var index = StartHighScoresListBox.SelectedIndex;
-        if (index < 0 || index >= _highScores.Count)
+        _isHighscoreUnlocked = true;
+        HighscorePasswordBox.Password = string.Empty;
+        HighscoreAuthStatusText.Text = "✅ Edycja odblokowana: możesz zmieniać nick lub usuwać rekordy.";
+        HighscoreAuthStatusText.Foreground = new SolidColorBrush(Color.FromRgb(147, 197, 253));
+        HighscoreManageHintText.Text = "Tryb edycji aktywny.";
+        RefreshHighScores();
+    }
+
+    private void HighscoreDeleteButton_Click(object sender, RoutedEventArgs e)
+    {
+        PlayEffect("buttonClick");
+        if (!EnsureHighscoreUnlocked())
         {
-            HighscoreManageHintText.Text = "Wybierz rekord do usunięcia.";
+            return;
+        }
+
+        if (sender is not Button { Tag: int index } || index < 0 || index >= _highScores.Count)
+        {
+            HighscoreManageHintText.Text = "Nie udało się usunąć rekordu.";
             return;
         }
 
@@ -1646,23 +1775,72 @@ public partial class MainWindow : Window
         RefreshHighScores();
         SaveHighScores();
         UpdateHud();
-        HighscoreManageHintText.Text = "Usunięto rekord.";
+        HighscoreManageHintText.Text = "Rekord usunięty.";
     }
 
-    private void ClearHighscoresButton_Click(object sender, RoutedEventArgs e)
+    private void HighscoreEditNameButton_Click(object sender, RoutedEventArgs e)
     {
         PlayEffect("buttonClick");
-        if (HighscorePasswordBox.Password != AdManagerPassword)
+        if (!EnsureHighscoreUnlocked())
         {
-            HighscoreManageHintText.Text = "Błędne hasło";
             return;
         }
 
-        _highScores.Clear();
-        RefreshHighScores();
+        if (sender is not Button { Tag: int index } || index < 0 || index >= _highScores.Count)
+        {
+            HighscoreManageHintText.Text = "Nie udało się edytować rekordu.";
+            return;
+        }
+
+        var rowBorder = StartHighScoresListBox.Items[index] as Border;
+        var editor = rowBorder?.Tag as TextBox;
+        if (editor is null)
+        {
+            HighscoreManageHintText.Text = "Brak pola edycji dla tego wpisu.";
+            return;
+        }
+
+        editor.Visibility = Visibility.Visible;
+        editor.Focus();
+        editor.SelectAll();
+        HighscoreManageHintText.Text = "Wpisz nowy nick i kliknij ✔.";
+    }
+
+    private void HighscoreApplyNameButton_Click(object sender, RoutedEventArgs e)
+    {
+        PlayEffect("buttonClick");
+        if (!EnsureHighscoreUnlocked())
+        {
+            return;
+        }
+
+        if (sender is not Button { Tag: int index } || index < 0 || index >= _highScores.Count)
+        {
+            HighscoreManageHintText.Text = "Nie udało się zapisać nicku.";
+            return;
+        }
+
+        var rowBorder = StartHighScoresListBox.Items[index] as Border;
+        var editor = rowBorder?.Tag as TextBox;
+        if (editor is null)
+        {
+            HighscoreManageHintText.Text = "Brak pola edycji dla tego wpisu.";
+            return;
+        }
+
+        var newName = editor.Text.Trim();
+        if (string.IsNullOrWhiteSpace(newName))
+        {
+            HighscoreManageHintText.Text = "Nick nie może być pusty.";
+            return;
+        }
+
+        var current = _highScores[index];
+        _highScores[index] = current with { Name = newName };
         SaveHighScores();
+        RefreshHighScores();
         UpdateHud();
-        HighscoreManageHintText.Text = "Wyczyszczono wszystkie rekordy.";
+        HighscoreManageHintText.Text = "Nick zaktualizowany.";
     }
 
     private void ResetAdManagerUi()

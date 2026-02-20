@@ -50,7 +50,7 @@
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <Border Grid.Row="0" BorderBrush="#4E6C95" BorderThickness="2" CornerRadius="12" Background="#0E223F" ClipToBounds="True">
+                    <Border x:Name="AdSlotTopBorder" Grid.Row="0" BorderBrush="#4E6C95" BorderThickness="2" CornerRadius="12" Background="#0E223F" ClipToBounds="True">
                         <Grid>
                             <Image x:Name="AdImageTop"
                                    Stretch="Uniform"
@@ -65,7 +65,7 @@
                         </Grid>
                     </Border>
 
-                    <Border Grid.Row="2" BorderBrush="#4E6C95" BorderThickness="2" CornerRadius="12" Background="#0E223F" ClipToBounds="True">
+                    <Border x:Name="AdSlotMiddleBorder" Grid.Row="2" BorderBrush="#4E6C95" BorderThickness="2" CornerRadius="12" Background="#0E223F" ClipToBounds="True">
                         <Grid>
                             <Image x:Name="AdImageMiddle"
                                    Stretch="Uniform"
@@ -80,7 +80,7 @@
                         </Grid>
                     </Border>
 
-                    <Border Grid.Row="4" BorderBrush="#4E6C95" BorderThickness="2" CornerRadius="12" Background="#0E223F" ClipToBounds="True">
+                    <Border x:Name="AdSlotBottomBorder" Grid.Row="4" BorderBrush="#4E6C95" BorderThickness="2" CornerRadius="12" Background="#0E223F" ClipToBounds="True">
                         <Grid>
                             <Image x:Name="AdImageBottom"
                                    Stretch="Uniform"
@@ -348,38 +348,62 @@
                             </StackPanel>
                         </ScrollViewer>
 
-                        <Border x:Name="HighscorePanel" Visibility="Collapsed" Margin="16,8,16,16" CornerRadius="10" BorderBrush="#3C577C" BorderThickness="1" Background="#0A162C" Padding="16">
-                            <StackPanel>
-                                <TextBlock Text="NAJLEPSZE WYNIKI"
+                        <Border x:Name="HighscorePanel" Visibility="Collapsed" Margin="16,8,16,16" CornerRadius="10" BorderBrush="#3C577C" BorderThickness="1" Background="#0A162C" Padding="18">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0"
+                                           Text="HIGHSCORE CONTROL CENTER"
                                            Foreground="#D7E4F6"
-                                           FontSize="28"
+                                           FontSize="30"
                                            FontWeight="Bold"
-                                           Margin="0,0,0,14" />
-                                <ListBox x:Name="StartHighScoresListBox"
-                                         Height="470"
+                                           Margin="0,0,0,12" />
+
+                                <Border Grid.Row="1" CornerRadius="10" BorderBrush="#4A648A" BorderThickness="1" Background="#102442" Padding="12" Margin="0,0,0,12">
+                                    <StackPanel>
+                                        <TextBlock Text="Podaj hasło, aby odblokować edycję nicków i usuwanie rekordów" Foreground="#CBD5E1" FontSize="14" />
+                                        <DockPanel Margin="0,10,0,0">
+                                            <PasswordBox x:Name="HighscorePasswordBox"
+                                                         DockPanel.Dock="Left"
+                                                         Width="280"
+                                                         Background="#132647"
+                                                         Foreground="#F8FAFC"
+                                                         BorderBrush="#3C577C"
+                                                         Padding="10,8" />
+                                            <Button Content="ZATWIERDŹ HASŁO"
+                                                    Click="UnlockHighscoreActionsButton_Click"
+                                                    Margin="10,0,0,0"
+                                                    Padding="16,8"
+                                                    FontWeight="SemiBold"
+                                                    Background="#2563EB"
+                                                    Foreground="White"
+                                                    BorderBrush="#5B8EFF" />
+                                        </DockPanel>
+                                        <TextBlock x:Name="HighscoreAuthStatusText"
+                                                   Foreground="#93C5FD"
+                                                   Margin="0,8,0,0" />
+                                    </StackPanel>
+                                </Border>
+
+                                <ListBox Grid.Row="2"
+                                         x:Name="StartHighScoresListBox"
                                          Background="#0A162C"
                                          BorderBrush="#3C577C"
                                          Foreground="#F8FAFC"
-                                         FontSize="26" />
-                                <TextBlock Text="Hasło do zarządzania rekordami" Foreground="#CBD5E1" Margin="0,12,0,4" />
-                                <PasswordBox x:Name="HighscorePasswordBox"
-                                             Background="#132647"
-                                             Foreground="#F8FAFC"
-                                             BorderBrush="#3C577C"
-                                             Padding="8" />
-                                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                                    <Button Content="Usuń zaznaczony"
-                                            Click="DeleteSelectedHighscoreButton_Click"
-                                            Padding="12,6"
-                                            Margin="0,0,8,0" />
-                                    <Button Content="Wyczyść wszystkie"
-                                            Click="ClearHighscoresButton_Click"
-                                            Padding="12,6" />
-                                </StackPanel>
-                                <TextBlock x:Name="HighscoreManageHintText"
+                                         FontSize="18"
+                                         Padding="6" />
+
+                                <TextBlock Grid.Row="3"
+                                           x:Name="HighscoreManageHintText"
                                            Foreground="#FCA5A5"
-                                           Margin="0,8,0,0" />
-                            </StackPanel>
+                                           FontSize="15"
+                                           Margin="0,10,0,0" />
+                            </Grid>
                         </Border>
 
                         <ScrollViewer x:Name="SettingsPanel" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
