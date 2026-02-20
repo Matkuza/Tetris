@@ -59,6 +59,7 @@ public partial class MainWindow : Window
     private int _startLevel;
     private bool _isSurvivalMode;
     private int _survivalTickCounter;
+    private int _groundedTicks;
     private double _cellSize = 36;
     private bool _isFadeThemeActive;
     private bool _isHighscoreUnlocked;
@@ -446,6 +447,7 @@ public partial class MainWindow : Window
         _isGameStarted = true;
         _isPaused = false;
         _survivalTickCounter = 0;
+        _groundedTicks = 0;
         GameOverOverlay.Visibility = Visibility.Collapsed;
         PauseOverlay.Visibility = Visibility.Collapsed;
 
@@ -484,16 +486,25 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (!TryMove(_currentX, _currentY + 1, _currentPiece.Cells))
+        if (TryMove(_currentX, _currentY + 1, _currentPiece.Cells))
         {
-            LockPiece();
-            var clearedRows = ClearFullLines();
-            if (clearedRows.Count > 0)
+            _groundedTicks = 0;
+        }
+        else
+        {
+            _groundedTicks++;
+            if (_groundedTicks >= 2)
             {
-                AnimateClearedLines(clearedRows);
-            }
+                _groundedTicks = 0;
+                LockPiece();
+                var clearedRows = ClearFullLines();
+                if (clearedRows.Count > 0)
+                {
+                    AnimateClearedLines(clearedRows);
+                }
 
-            SpawnPiece();
+                SpawnPiece();
+            }
         }
 
         if (_isSurvivalMode)
@@ -516,6 +527,7 @@ public partial class MainWindow : Window
         _nextPiece = CreateRandomPiece();
         _currentX = BoardWidth / 2 - 2;
         _currentY = 0;
+        _groundedTicks = 0;
 
         if (!IsPositionValid(_currentX, _currentY, _currentPiece.Cells))
         {
@@ -743,11 +755,21 @@ public partial class MainWindow : Window
         }
     }
 
-    private void RotateCurrentPiece()
+    private void RefreshLockDelayAfterPlayerAction(bool actionApplied)
+    {
+        if (!actionApplied)
+        {
+            return;
+        }
+
+        _groundedTicks = 0;
+    }
+
+    private bool RotateCurrentPiece()
     {
         if (_currentPiece.IsSquare)
         {
-            return;
+            return false;
         }
 
         var rotated = _currentPiece.Cells.Select(p => new Point(2 - p.Y, p.X)).ToArray();
@@ -761,8 +783,10 @@ public partial class MainWindow : Window
 
             _currentX += offset;
             _currentPiece = _currentPiece with { Cells = rotated };
-            return;
+            return true;
         }
+
+        return false;
     }
 
     private void HardDrop()
@@ -1072,21 +1096,36 @@ public partial class MainWindow : Window
         switch (e.Key)
         {
             case Key.Left:
-                TryMove(_currentX - 1, _currentY, _currentPiece.Cells);
+            {
+                var moved = TryMove(_currentX - 1, _currentY, _currentPiece.Cells);
+                RefreshLockDelayAfterPlayerAction(moved);
                 PlayEffect("rotate");
                 break;
+            }
             case Key.Right:
-                TryMove(_currentX + 1, _currentY, _currentPiece.Cells);
+            {
+                var moved = TryMove(_currentX + 1, _currentY, _currentPiece.Cells);
+                RefreshLockDelayAfterPlayerAction(moved);
                 PlayEffect("rotate");
                 break;
+            }
             case Key.Down:
-                TryMove(_currentX, _currentY + 1, _currentPiece.Cells);
+            {
+                var moved = TryMove(_currentX, _currentY + 1, _currentPiece.Cells);
+                if (moved)
+                {
+                    _groundedTicks = 0;
+                }
                 PlayEffect("rotate");
                 break;
+            }
             case Key.Up:
-                RotateCurrentPiece();
+            {
+                var rotated = RotateCurrentPiece();
+                RefreshLockDelayAfterPlayerAction(rotated);
                 PlayEffect("rotate");
                 break;
+            }
             case Key.Space:
                 HardDrop();
                 return;

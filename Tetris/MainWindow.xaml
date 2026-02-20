@@ -106,7 +106,8 @@
                 Background="#020617"
                 Margin="10"
                 VerticalAlignment="Stretch"
-                HorizontalAlignment="Center">
+                HorizontalAlignment="Center"
+                ClipToBounds="True">
             <Grid>
                 <Canvas x:Name="GameCanvas" />
                 <Canvas x:Name="EffectCanvas" IsHitTestVisible="False" />
@@ -114,6 +115,7 @@
                 <Border x:Name="PauseOverlay"
                         Visibility="Collapsed"
                         Background="#A0000000"
+                        CornerRadius="14"
                         IsHitTestVisible="False">
                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                         <TextBlock Text="PAUZA"
@@ -131,7 +133,8 @@
 
                 <Border x:Name="GameOverOverlay"
                         Visibility="Collapsed"
-                        Background="#D9B91C1C">
+                        Background="#D9B91C1C"
+                        CornerRadius="14">
                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                         <TextBlock Text="PRZEGRAŁEŚ"
                                    Foreground="#FFE5E5"
