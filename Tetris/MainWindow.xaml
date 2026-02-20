@@ -111,6 +111,24 @@
                 <Canvas x:Name="GameCanvas" />
                 <Canvas x:Name="EffectCanvas" IsHitTestVisible="False" />
 
+                <Border x:Name="PauseOverlay"
+                        Visibility="Collapsed"
+                        Background="#A0000000"
+                        IsHitTestVisible="False">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock Text="PAUZA"
+                                   Foreground="#F8FAFC"
+                                   FontSize="64"
+                                   FontWeight="Bold"
+                                   HorizontalAlignment="Center" />
+                        <TextBlock Text="Naciśnij P aby wznowić"
+                                   Foreground="#E2E8F0"
+                                   FontSize="22"
+                                   Margin="0,14,0,0"
+                                   HorizontalAlignment="Center" />
+                    </StackPanel>
+                </Border>
+
                 <Border x:Name="GameOverOverlay"
                         Visibility="Collapsed"
                         Background="#D9B91C1C">
@@ -180,7 +198,7 @@
 
             <Border x:Name="StatusCard" CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="14">
                 <TextBlock x:Name="StatusText"
-                           Text="Strzałki: ruch/obrót • Spacja: szybki zrzut • Esc: zamknij"
+                           Text="Strzałki: ruch/obrót • Spacja: szybki zrzut • P: pauza • Esc"
                            Foreground="#A9B7CB"
                            TextWrapping="Wrap"
                            FontSize="14" />

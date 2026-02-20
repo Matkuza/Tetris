@@ -59,6 +59,7 @@ public partial class MainWindow : Window
     private int _linesCleared;
     private bool _gameOver;
     private bool _isGameStarted;
+    private bool _isPaused;
     private int _startLevel;
     private double _cellSize = 36;
 
@@ -280,7 +281,9 @@ public partial class MainWindow : Window
         _linesCleared = 0;
         _gameOver = false;
         _isGameStarted = true;
+        _isPaused = false;
         GameOverOverlay.Visibility = Visibility.Collapsed;
+        PauseOverlay.Visibility = Visibility.Collapsed;
 
         _startLevel = StartLevelComboBox.SelectedIndex switch
         {
@@ -311,7 +314,7 @@ public partial class MainWindow : Window
 
     private void Tick()
     {
-        if (_gameOver || !_isGameStarted)
+        if (_gameOver || !_isGameStarted || _isPaused)
         {
             return;
         }
@@ -590,7 +593,9 @@ public partial class MainWindow : Window
 
         if (!_gameOver)
         {
-            StatusText.Text = "Tryb szybki mocno zwiększa tempo • Strzałki/Spacja • Esc";
+            StatusText.Text = _isPaused
+                ? "PAUZA • P: wznów • Esc"
+                : "Tryb szybki mocno zwiększa tempo • Strzałki/Spacja • P: pauza • Esc";
         }
     }
 
@@ -624,10 +629,36 @@ public partial class MainWindow : Window
 
         if (!_gameOver && _isGameStarted)
         {
+            if (!_isPaused)
+            {
+                DrawGhostPiece();
+            }
+
             foreach (var cell in _currentPiece.Cells)
             {
                 DrawCell(_currentX + (int)cell.X, _currentY + (int)cell.Y, _currentPiece.Color, 1);
             }
+        }
+    }
+
+    private void DrawGhostPiece()
+    {
+        var ghostY = _currentY;
+        while (IsPositionValid(_currentX, ghostY + 1, _currentPiece.Cells))
+        {
+            ghostY++;
+        }
+
+        if (ghostY == _currentY)
+        {
+            return;
+        }
+
+        foreach (var cell in _currentPiece.Cells)
+        {
+            var ghostX = _currentX + (int)cell.X;
+            var ghostCellY = ghostY + (int)cell.Y;
+            DrawCell(ghostX, ghostCellY, _currentPiece.Color, 0.22);
         }
     }
 
@@ -705,6 +736,17 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (e.Key == Key.P)
+        {
+            TogglePause();
+            return;
+        }
+
+        if (_isPaused)
+        {
+            return;
+        }
+
         switch (e.Key)
         {
             case Key.Left:
@@ -728,6 +770,31 @@ public partial class MainWindow : Window
                 return;
         }
 
+        Draw();
+    }
+
+    private void TogglePause()
+    {
+        if (!_isGameStarted || _gameOver)
+        {
+            return;
+        }
+
+        _isPaused = !_isPaused;
+        PauseOverlay.Visibility = _isPaused ? Visibility.Visible : Visibility.Collapsed;
+
+        if (_isPaused)
+        {
+            _timer.Stop();
+            StopBackgroundMusic();
+        }
+        else
+        {
+            _timer.Start();
+            PlayBackgroundMusic();
+        }
+
+        UpdateHud();
         Draw();
     }
 
