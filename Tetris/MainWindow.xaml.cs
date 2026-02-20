@@ -64,8 +64,8 @@ public partial class MainWindow : Window
     private readonly Dictionary<string, Uri> _soundUris;
     private readonly Dictionary<string, MediaPlayer> _effectPlayers = new();
 
-    private bool _areEffectsEnabled = true;
-    private bool _isMusicEnabled = true;
+    private double _effectsVolume = 0.8;
+    private double _musicVolume = 0.6;
 
     private Color _emptyCellColor = Color.FromRgb(12, 20, 38);
 
@@ -113,6 +113,7 @@ public partial class MainWindow : Window
             _backgroundMusicPlayer.Position = TimeSpan.Zero;
             _backgroundMusicPlayer.Play();
         };
+        _backgroundMusicPlayer.Volume = _musicVolume;
 
         HighScoresListBox.ItemsSource = _highScoreRows;
         AdListBox.ItemsSource = _ads;
@@ -153,24 +154,26 @@ public partial class MainWindow : Window
 
             var player = new MediaPlayer();
             player.Open(uri);
+            player.Volume = _effectsVolume;
             _effectPlayers[key] = player;
         }
     }
 
     private void PlayEffect(string soundKey)
     {
-        if (!_areEffectsEnabled || !_effectPlayers.TryGetValue(soundKey, out var player))
+        if (_effectsVolume <= 0 || !_effectPlayers.TryGetValue(soundKey, out var player))
         {
             return;
         }
 
+        player.Volume = _effectsVolume;
         player.Position = TimeSpan.Zero;
         player.Play();
     }
 
     private void PlayBackgroundMusic()
     {
-        if (!_isMusicEnabled)
+        if (_musicVolume <= 0)
         {
             return;
         }
@@ -181,6 +184,7 @@ public partial class MainWindow : Window
         }
 
         _backgroundMusicPlayer.Open(uri);
+        _backgroundMusicPlayer.Volume = _musicVolume;
         _backgroundMusicPlayer.Position = TimeSpan.Zero;
         _backgroundMusicPlayer.Play();
     }
@@ -190,26 +194,30 @@ public partial class MainWindow : Window
         _backgroundMusicPlayer.Stop();
     }
 
-    private void EffectsEnabledCheckBox_Changed(object sender, RoutedEventArgs e)
+    private void EffectsVolumeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
-        _areEffectsEnabled = EffectsEnabledCheckBox.IsChecked == true;
+        _effectsVolume = Math.Clamp(e.NewValue, 0, 1);
+        foreach (var player in _effectPlayers.Values)
+        {
+            player.Volume = _effectsVolume;
+        }
     }
 
-    private void MusicEnabledCheckBox_Changed(object sender, RoutedEventArgs e)
+    private void MusicVolumeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
-        _isMusicEnabled = MusicEnabledCheckBox.IsChecked == true;
+        _musicVolume = Math.Clamp(e.NewValue, 0, 1);
+        _backgroundMusicPlayer.Volume = _musicVolume;
 
-        if (_isMusicEnabled)
+        if (_musicVolume <= 0)
         {
-            if (_isGameStarted && !_gameOver && StartMenuOverlay.Visibility != Visibility.Visible)
-            {
-                PlayBackgroundMusic();
-            }
-
+            StopBackgroundMusic();
             return;
         }
 
-        StopBackgroundMusic();
+        if (_isGameStarted && !_gameOver && StartMenuOverlay.Visibility != Visibility.Visible)
+        {
+            PlayBackgroundMusic();
+        }
     }
 
     private void ApplyTheme()

@@ -250,21 +250,55 @@
                         <ComboBoxItem Content="Sunset Retro" />
                     </ComboBox>
 
-                    <WrapPanel Margin="0,0,0,18">
-                        <CheckBox x:Name="MusicEnabledCheckBox"
-                                  Content="Muzyka"
-                                  IsChecked="True"
-                                  Checked="MusicEnabledCheckBox_Changed"
-                                  Unchecked="MusicEnabledCheckBox_Changed"
-                                  Foreground="#E2E8F0"
-                                  Margin="0,0,18,0" />
-                        <CheckBox x:Name="EffectsEnabledCheckBox"
-                                  Content="Efekty"
-                                  IsChecked="True"
-                                  Checked="EffectsEnabledCheckBox_Changed"
-                                  Unchecked="EffectsEnabledCheckBox_Changed"
-                                  Foreground="#E2E8F0" />
-                    </WrapPanel>
+                    <Grid Margin="0,0,0,18">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Column="0"
+                                CornerRadius="8"
+                                BorderBrush="#3C577C"
+                                BorderThickness="1"
+                                Background="#132647"
+                                Padding="8">
+                            <StackPanel>
+                                <TextBlock Text="Muzyka"
+                                           Foreground="#E2E8F0"
+                                           FontSize="13"
+                                           Margin="0,0,0,4" />
+                                <Slider x:Name="MusicVolumeSlider"
+                                        Minimum="0"
+                                        Maximum="1"
+                                        Value="0.6"
+                                        TickFrequency="0.1"
+                                        IsSnapToTickEnabled="False"
+                                        ValueChanged="MusicVolumeSlider_ValueChanged" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Grid.Column="2"
+                                CornerRadius="8"
+                                BorderBrush="#3C577C"
+                                BorderThickness="1"
+                                Background="#132647"
+                                Padding="8">
+                            <StackPanel>
+                                <TextBlock Text="Efekty"
+                                           Foreground="#E2E8F0"
+                                           FontSize="13"
+                                           Margin="0,0,0,4" />
+                                <Slider x:Name="EffectsVolumeSlider"
+                                        Minimum="0"
+                                        Maximum="1"
+                                        Value="0.8"
+                                        TickFrequency="0.1"
+                                        IsSnapToTickEnabled="False"
+                                        ValueChanged="EffectsVolumeSlider_ValueChanged" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
 
                     <Button Content="Opcje reklam (hasło)"
                             Click="OpenAdManagerButton_Click"
