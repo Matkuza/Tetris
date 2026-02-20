@@ -60,6 +60,10 @@ public partial class MainWindow : Window
     private int _startLevel;
     private double _cellSize = 36;
 
+    private readonly MediaPlayer _backgroundMusicPlayer = new();
+    private readonly MediaPlayer _effectsPlayer = new();
+    private readonly Dictionary<string, Uri> _soundUris;
+
     private Color _emptyCellColor = Color.FromRgb(12, 20, 38);
 
     private static readonly Color[] NeonPalette =
@@ -99,6 +103,12 @@ public partial class MainWindow : Window
 
         _adStorageFolder = ResolveAdStoragePath();
         _adManifestPath = IOPath.Combine(_adStorageFolder, "ads.json");
+        _soundUris = CreateSoundUriMap();
+        _backgroundMusicPlayer.MediaEnded += (_, _) =>
+        {
+            _backgroundMusicPlayer.Position = TimeSpan.Zero;
+            _backgroundMusicPlayer.Play();
+        };
 
         HighScoresListBox.ItemsSource = _highScoreRows;
         AdListBox.ItemsSource = _ads;
@@ -112,6 +122,49 @@ public partial class MainWindow : Window
         Draw();
         RotateAds();
         _adTimer.Start();
+    }
+
+    private Dictionary<string, Uri> CreateSoundUriMap()
+    {
+        var soundFolder = IOPath.Combine(AppContext.BaseDirectory, "Sound");
+        return new Dictionary<string, Uri>
+        {
+            ["rotate"] = new Uri(IOPath.Combine(soundFolder, "rotate.mp3")),
+            ["buttonClick"] = new Uri(IOPath.Combine(soundFolder, "ButtonClick.mp3")),
+            ["startGame"] = new Uri(IOPath.Combine(soundFolder, "StartGame.mp3")),
+            ["lineClear"] = new Uri(IOPath.Combine(soundFolder, "AllBrickInLine.mp3")),
+            ["defeat"] = new Uri(IOPath.Combine(soundFolder, "defeat.mp3")),
+            ["gameMusic"] = new Uri(IOPath.Combine(soundFolder, "GameMusicLoop.mp3"))
+        };
+    }
+
+    private void PlayEffect(string soundKey)
+    {
+        if (!_soundUris.TryGetValue(soundKey, out var uri) || !File.Exists(uri.LocalPath))
+        {
+            return;
+        }
+
+        _effectsPlayer.Open(uri);
+        _effectsPlayer.Position = TimeSpan.Zero;
+        _effectsPlayer.Play();
+    }
+
+    private void PlayBackgroundMusic()
+    {
+        if (!_soundUris.TryGetValue("gameMusic", out var uri) || !File.Exists(uri.LocalPath))
+        {
+            return;
+        }
+
+        _backgroundMusicPlayer.Open(uri);
+        _backgroundMusicPlayer.Position = TimeSpan.Zero;
+        _backgroundMusicPlayer.Play();
+    }
+
+    private void StopBackgroundMusic()
+    {
+        _backgroundMusicPlayer.Stop();
     }
 
     private void ApplyTheme()
@@ -183,6 +236,8 @@ public partial class MainWindow : Window
         SpawnPiece();
         UpdateHud();
         Draw();
+        PlayEffect("startGame");
+        PlayBackgroundMusic();
         _timer.Start();
     }
 
@@ -234,6 +289,8 @@ public partial class MainWindow : Window
     {
         _gameOver = true;
         _timer.Stop();
+        StopBackgroundMusic();
+        PlayEffect("defeat");
         RegisterScore();
         GameOverOverlay.Visibility = Visibility.Visible;
         StatusText.Text = "PRZEGRAŁEŚ • Spacja: menu start • Esc: zamknij";
@@ -417,6 +474,7 @@ public partial class MainWindow : Window
         SetTimerSpeed();
         UpdateHud();
         AnimateScorePulse();
+        PlayEffect("lineClear");
         return removedRows;
     }
 
@@ -590,15 +648,19 @@ public partial class MainWindow : Window
         {
             case Key.Left:
                 TryMove(_currentX - 1, _currentY, _currentPiece.Cells);
+                PlayEffect("rotate");
                 break;
             case Key.Right:
                 TryMove(_currentX + 1, _currentY, _currentPiece.Cells);
+                PlayEffect("rotate");
                 break;
             case Key.Down:
                 TryMove(_currentX, _currentY + 1, _currentPiece.Cells);
+                PlayEffect("rotate");
                 break;
             case Key.Up:
                 RotateCurrentPiece();
+                PlayEffect("rotate");
                 break;
             case Key.Space:
                 HardDrop();
@@ -886,6 +948,7 @@ public partial class MainWindow : Window
 
     private void AddAdButton_Click(object sender, RoutedEventArgs e)
     {
+        PlayEffect("buttonClick");
         var dialog = new OpenFileDialog
         {
             Title = "Wybierz reklamę",
@@ -919,6 +982,7 @@ public partial class MainWindow : Window
 
     private void DeleteAdButton_Click(object sender, RoutedEventArgs e)
     {
+        PlayEffect("buttonClick");
         if (AdListBox.SelectedItem is not AdEntry selected)
         {
             return;
@@ -948,6 +1012,7 @@ public partial class MainWindow : Window
 
     private void MoveAdUpButton_Click(object sender, RoutedEventArgs e)
     {
+        PlayEffect("buttonClick");
         var index = AdListBox.SelectedIndex;
         if (index <= 0)
         {
@@ -962,6 +1027,7 @@ public partial class MainWindow : Window
 
     private void MoveAdDownButton_Click(object sender, RoutedEventArgs e)
     {
+        PlayEffect("buttonClick");
         var index = AdListBox.SelectedIndex;
         if (index < 0 || index >= _ads.Count - 1)
         {
@@ -1004,6 +1070,7 @@ public partial class MainWindow : Window
 
     private void SaveSelectedAdSettingsButton_Click(object sender, RoutedEventArgs e)
     {
+        PlayEffect("buttonClick");
         if (AdListBox.SelectedItem is not AdEntry selected)
         {
             MessageBox.Show("Najpierw wybierz grafikę z listy.", "Informacja", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -1052,6 +1119,7 @@ public partial class MainWindow : Window
 
     private void SaveGlobalAdSettingsButton_Click(object sender, RoutedEventArgs e)
     {
+        PlayEffect("buttonClick");
         var rotationBox = GetRotationIntervalTextBox();
         var defaultDurationBox = GetDefaultAdDurationTextBox();
 
@@ -1113,6 +1181,7 @@ public partial class MainWindow : Window
 
     private void OpenAdManagerButton_Click(object sender, RoutedEventArgs e)
     {
+        PlayEffect("buttonClick");
         var panel = GetAdManagerPanel();
         var authPanel = GetAdManagerAuthPanel();
         var controls = GetAdManagerControls();
@@ -1134,6 +1203,7 @@ public partial class MainWindow : Window
 
     private void UnlockAdManagerButton_Click(object sender, RoutedEventArgs e)
     {
+        PlayEffect("buttonClick");
         var authPanel = GetAdManagerAuthPanel();
         var controls = GetAdManagerControls();
         var passwordBox = GetAdManagerPasswordBox();
@@ -1157,11 +1227,13 @@ public partial class MainWindow : Window
 
     private void CloseAdManagerButton_Click(object sender, RoutedEventArgs e)
     {
+        PlayEffect("buttonClick");
         ResetAdManagerUi();
     }
 
     private void StartButton_Click(object sender, RoutedEventArgs e)
     {
+        PlayEffect("buttonClick");
         ResetAdManagerUi();
         ApplyTheme();
         StartMenuOverlay.Visibility = Visibility.Collapsed;
@@ -1170,6 +1242,7 @@ public partial class MainWindow : Window
 
     private void ExitButton_Click(object sender, RoutedEventArgs e)
     {
+        PlayEffect("buttonClick");
         Close();
     }
 
