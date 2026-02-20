@@ -9,6 +9,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
+using System.Windows.Media.Effects;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 using Microsoft.Win32;
@@ -24,26 +25,23 @@ public partial class MainWindow : Window
     private readonly Brush?[,] _board = new Brush?[BoardHeight, BoardWidth];
     private readonly Random _random = new();
     private readonly DispatcherTimer _timer;
-    private readonly ObservableCollection<string> _highScoreRows =
-    [
-        "1. --- 0",
-        "2. --- 0",
-        "3. --- 0",
-        "4. --- 0",
-        "5. --- 0"
-    ];
-
     private readonly List<ScoreEntry> _highScores = [];
     private readonly ObservableCollection<AdEntry> _ads = [];
     private readonly DispatcherTimer _adTimer;
+    private readonly DispatcherTimer _visualFxTimer;
     private readonly Dictionary<AdPanel, AdPlaybackState> _adStates = new();
 
     private readonly string _adStorageFolder;
     private readonly string _adManifestPath;
+    private readonly string _settingsPath;
+    private readonly string _highScoresPath;
 
     private static readonly JsonSerializerOptions JsonWriteOptions = new() { WriteIndented = true };
     private const int MinAdSeconds = 2;
     private const int MaxAdSeconds = 120;
+    private const double MaxMusicOutputVolume = 0.18;
+    private const double MaxEffectsOutputVolume = 0.30;
+    private const int MaxLockResetsPerPiece = 8;
 
     private int _defaultAdDurationSeconds = 10;
     private int _rotationIntervalSeconds = 1;
@@ -57,8 +55,24 @@ public partial class MainWindow : Window
     private int _linesCleared;
     private bool _gameOver;
     private bool _isGameStarted;
+    private bool _isPaused;
+    private bool _isLoadingSettings = true;
     private int _startLevel;
+    private bool _isSurvivalMode;
+    private int _survivalTickCounter;
+    private int _groundedTicks;
+    private int _lockResetsUsed;
     private double _cellSize = 36;
+    private bool _isFadeThemeActive;
+    private bool _isHighscoreUnlocked;
+
+    private readonly MediaPlayer _backgroundMusicPlayer = new();
+    private readonly Dictionary<string, Uri> _soundUris;
+    private readonly Dictionary<string, MediaPlayer> _effectPlayers = new();
+
+    private double _effectsVolume = 0.8;
+    private double _musicVolume = 0.6;
+
 
     private Color _emptyCellColor = Color.FromRgb(12, 20, 38);
 
@@ -74,6 +88,13 @@ public partial class MainWindow : Window
         Color.FromRgb(255, 112, 67), Color.FromRgb(255, 202, 40), Color.FromRgb(156, 204, 101),
         Color.FromRgb(38, 198, 218), Color.FromRgb(126, 87, 194), Color.FromRgb(236, 64, 122),
         Color.FromRgb(255, 167, 38)
+    ];
+
+    private static readonly Color[] FadePalette =
+    [
+        Color.FromRgb(0, 245, 255), Color.FromRgb(88, 101, 242), Color.FromRgb(255, 0, 204),
+        Color.FromRgb(255, 95, 109), Color.FromRgb(255, 200, 87), Color.FromRgb(57, 255, 20),
+        Color.FromRgb(153, 102, 255)
     ];
 
     private Brush[] _activePaletteBrushes = [];
@@ -96,67 +117,327 @@ public partial class MainWindow : Window
         _timer.Tick += (_, _) => Tick();
         _adTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _adTimer.Tick += (_, _) => RotateAds();
+        _visualFxTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(90) };
+        _visualFxTimer.Tick += (_, _) =>
+        {
+            if (_isFadeThemeActive)
+            {
+                Draw();
+                DrawNextPiece();
+            }
+        };
 
         _adStorageFolder = ResolveAdStoragePath();
         _adManifestPath = IOPath.Combine(_adStorageFolder, "ads.json");
+        _settingsPath = IOPath.Combine(_adStorageFolder, "settings.json");
+        _highScoresPath = IOPath.Combine(_adStorageFolder, "highscores.json");
+        _soundUris = CreateSoundUriMap();
+        InitializeEffectPlayers();
+        _backgroundMusicPlayer.MediaEnded += (_, _) =>
+        {
+            _backgroundMusicPlayer.Position = TimeSpan.Zero;
+            _backgroundMusicPlayer.Play();
+        };
+        _backgroundMusicPlayer.Volume = ScaleVolume(_musicVolume, MaxMusicOutputVolume);
 
-        HighScoresListBox.ItemsSource = _highScoreRows;
         AdListBox.ItemsSource = _ads;
+        ShowStartMenuSection(StartMenuSection.NewGame);
 
         ConfigureAdStates();
         EnsureAdStorage();
         LoadAds();
+        LoadHighScores();
+        LoadSettings();
         ApplyLoadedGlobalSettingsToUi();
         ApplyTheme();
         UpdateBoardLayout();
         Draw();
         RotateAds();
         _adTimer.Start();
+        _isLoadingSettings = false;
+    }
+
+    private Dictionary<string, Uri> CreateSoundUriMap()
+    {
+        var soundFolder = IOPath.Combine(AppContext.BaseDirectory, "Sound");
+        return new Dictionary<string, Uri>
+        {
+            ["rotate"] = new Uri(IOPath.Combine(soundFolder, "rotate.mp3")),
+            ["buttonClick"] = new Uri(IOPath.Combine(soundFolder, "ButtonClick.mp3")),
+            ["startGame"] = new Uri(IOPath.Combine(soundFolder, "StartGame.mp3")),
+            ["lineClear"] = new Uri(IOPath.Combine(soundFolder, "AllBrickInLine.mp3")),
+            ["defeat"] = new Uri(IOPath.Combine(soundFolder, "defeat.mp3")),
+            ["gameMusic"] = new Uri(IOPath.Combine(soundFolder, "GameMusicLoop.mp3"))
+        };
+    }
+
+    private void InitializeEffectPlayers()
+    {
+        foreach (var (key, uri) in _soundUris)
+        {
+            if (key == "gameMusic" || !File.Exists(uri.LocalPath))
+            {
+                continue;
+            }
+
+            var player = new MediaPlayer();
+            player.Open(uri);
+            player.Volume = ScaleVolume(_effectsVolume, MaxEffectsOutputVolume);
+            _effectPlayers[key] = player;
+        }
+    }
+
+    private static double ScaleVolume(double uiValue, double maxOutput)
+    {
+        var normalized = Math.Clamp(uiValue, 0, 1);
+        return Math.Pow(normalized, 2.2) * maxOutput;
+    }
+
+    private void PlayEffect(string soundKey)
+    {
+        if (_effectsVolume <= 0.001 || !_effectPlayers.TryGetValue(soundKey, out var player))
+        {
+            return;
+        }
+
+        player.Volume = ScaleVolume(_effectsVolume, MaxEffectsOutputVolume);
+        player.Position = TimeSpan.Zero;
+        player.Play();
+    }
+
+    private void PlayBackgroundMusic()
+    {
+        if (_musicVolume <= 0.001)
+        {
+            return;
+        }
+
+        if (!_soundUris.TryGetValue("gameMusic", out var uri) || !File.Exists(uri.LocalPath))
+        {
+            return;
+        }
+
+        _backgroundMusicPlayer.Open(uri);
+        _backgroundMusicPlayer.Volume = ScaleVolume(_musicVolume, MaxMusicOutputVolume);
+        _backgroundMusicPlayer.Position = TimeSpan.Zero;
+        _backgroundMusicPlayer.Play();
+    }
+
+    private void StopBackgroundMusic()
+    {
+        _backgroundMusicPlayer.Stop();
+    }
+
+    private void EffectsVolumeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        _effectsVolume = Math.Clamp(e.NewValue, 0, 1);
+        foreach (var player in _effectPlayers.Values)
+        {
+            player.Volume = ScaleVolume(_effectsVolume, MaxEffectsOutputVolume);
+        }
+
+        if (!_isLoadingSettings)
+        {
+            SaveSettings();
+        }
+    }
+
+    private void MusicVolumeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        _musicVolume = Math.Clamp(e.NewValue, 0, 1);
+        _backgroundMusicPlayer.Volume = ScaleVolume(_musicVolume, MaxMusicOutputVolume);
+
+        if (_musicVolume <= 0.001)
+        {
+            StopBackgroundMusic();
+            return;
+        }
+
+        if (e.OldValue <= 0.001 && _isGameStarted && !_gameOver && StartMenuOverlay.Visibility != Visibility.Visible)
+        {
+            PlayBackgroundMusic();
+        }
+
+        if (!_isLoadingSettings)
+        {
+            SaveSettings();
+        }
     }
 
     private void ApplyTheme()
     {
-        if (ThemeComboBox.SelectedIndex == 1)
+        _isFadeThemeActive = ThemeComboBox.SelectedIndex == 2;
+        if (_isFadeThemeActive)
         {
-            _activePaletteBrushes = RetroPalette.Select(c => (Brush)new SolidColorBrush(c)).ToArray();
-            Background = new SolidColorBrush(Color.FromRgb(30, 10, 16));
-            _emptyCellColor = Color.FromRgb(56, 20, 28);
-            SetCardTheme(Color.FromRgb(73, 33, 44), Color.FromRgb(109, 60, 77), Color.FromRgb(248, 224, 193));
-            AdBorder.Background = new SolidColorBrush(Color.FromRgb(61, 28, 40));
-            AdBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(126, 74, 91));
-            BoardBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(168, 109, 133));
-            BoardBorder.Background = new SolidColorBrush(Color.FromRgb(37, 12, 20));
+            _activePaletteBrushes = CreateAnimatedFadeBrushes();
+            Background = new SolidColorBrush(Color.FromRgb(4, 8, 24));
+            _emptyCellColor = Color.FromRgb(14, 18, 42);
+            SetCardTheme(Color.FromRgb(10, 18, 44), Color.FromRgb(70, 108, 196), Color.FromRgb(228, 244, 255));
+            AdBorder.Background = new SolidColorBrush(Color.FromRgb(11, 28, 58));
+            AdBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(92, 132, 226));
+            BoardBorder.Background = new SolidColorBrush(Color.FromRgb(5, 9, 34));
+            ApplyBoardGlowAnimation();
+            ApplyFadeAccentAnimations();
+            _visualFxTimer.Start();
         }
         else
         {
-            _activePaletteBrushes = NeonPalette.Select(c => (Brush)new SolidColorBrush(c)).ToArray();
-            Background = new SolidColorBrush(Color.FromRgb(5, 8, 22));
-            _emptyCellColor = Color.FromRgb(12, 20, 38);
-            SetCardTheme(Color.FromRgb(9, 18, 36), Color.FromRgb(50, 67, 95), Color.FromRgb(230, 238, 250));
-            AdBorder.Background = new SolidColorBrush(Color.FromRgb(8, 26, 51));
-            AdBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(58, 74, 106));
-            BoardBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(58, 74, 106));
-            BoardBorder.Background = new SolidColorBrush(Color.FromRgb(2, 6, 23));
+            _visualFxTimer.Stop();
+            ClearFadeAccentEffects();
+            if (ThemeComboBox.SelectedIndex == 1)
+            {
+                _activePaletteBrushes = RetroPalette.Select(c => (Brush)new SolidColorBrush(c)).ToArray();
+                Background = new SolidColorBrush(Color.FromRgb(30, 10, 16));
+                _emptyCellColor = Color.FromRgb(56, 20, 28);
+                SetCardTheme(Color.FromRgb(73, 33, 44), Color.FromRgb(109, 60, 77), Color.FromRgb(248, 224, 193));
+                AdBorder.Background = new SolidColorBrush(Color.FromRgb(61, 28, 40));
+                AdBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(126, 74, 91));
+                BoardBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(168, 109, 133));
+                BoardBorder.Background = new SolidColorBrush(Color.FromRgb(37, 12, 20));
+            }
+            else
+            {
+                _activePaletteBrushes = NeonPalette.Select(c => (Brush)new SolidColorBrush(c)).ToArray();
+                Background = new SolidColorBrush(Color.FromRgb(5, 8, 22));
+                _emptyCellColor = Color.FromRgb(12, 20, 38);
+                SetCardTheme(Color.FromRgb(9, 18, 36), Color.FromRgb(50, 67, 95), Color.FromRgb(230, 238, 250));
+                AdBorder.Background = new SolidColorBrush(Color.FromRgb(8, 26, 51));
+                AdBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(58, 74, 106));
+                BoardBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(58, 74, 106));
+                BoardBorder.Background = new SolidColorBrush(Color.FromRgb(2, 6, 23));
+            }
         }
 
         Draw();
     }
 
+    private Brush[] CreateAnimatedFadeBrushes()
+    {
+        var brushes = new Brush[FadePalette.Length];
+        for (var i = 0; i < FadePalette.Length; i++)
+        {
+            var from = FadePalette[i];
+            var to = FadePalette[(i + 1) % FadePalette.Length];
+            var brush = new SolidColorBrush(from);
+            var animation = new ColorAnimation
+            {
+                From = from,
+                To = to,
+                Duration = TimeSpan.FromMilliseconds(700 + i * 120),
+                AutoReverse = true,
+                RepeatBehavior = RepeatBehavior.Forever,
+                EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
+            };
+
+            brush.BeginAnimation(SolidColorBrush.ColorProperty, animation);
+            brushes[i] = brush;
+        }
+
+        return brushes;
+    }
+
+    private void ApplyBoardGlowAnimation()
+    {
+        var borderBrush = new SolidColorBrush(FadePalette[0]);
+        BoardBorder.BorderBrush = borderBrush;
+
+        var glow = new DropShadowEffect
+        {
+            BlurRadius = 26,
+            ShadowDepth = 0,
+            Color = FadePalette[2],
+            Opacity = 0.92
+        };
+
+        BoardBorder.Effect = glow;
+
+        var borderAnim = new ColorAnimationUsingKeyFrames { RepeatBehavior = RepeatBehavior.Forever, Duration = TimeSpan.FromSeconds(6) };
+        for (var i = 0; i < FadePalette.Length; i++)
+        {
+            borderAnim.KeyFrames.Add(new LinearColorKeyFrame(FadePalette[i], KeyTime.FromPercent((double)i / (FadePalette.Length - 1))));
+        }
+
+        borderBrush.BeginAnimation(SolidColorBrush.ColorProperty, borderAnim);
+
+        var glowAnim = new ColorAnimationUsingKeyFrames { RepeatBehavior = RepeatBehavior.Forever, Duration = TimeSpan.FromSeconds(6) };
+        for (var i = 0; i < FadePalette.Length; i++)
+        {
+            glowAnim.KeyFrames.Add(new LinearColorKeyFrame(FadePalette[(i + 2) % FadePalette.Length], KeyTime.FromPercent((double)i / (FadePalette.Length - 1))));
+        }
+
+        glow.BeginAnimation(DropShadowEffect.ColorProperty, glowAnim);
+    }
+
+
+    private void ApplyFadeAccentAnimations()
+    {
+        ApplyGlowToBorder(AdBorder, 1, 22, 0.85);
+        ApplyGlowToBorder(AdSlotTopBorder, 2, 14, 0.72);
+        ApplyGlowToBorder(AdSlotMiddleBorder, 3, 14, 0.72);
+        ApplyGlowToBorder(AdSlotBottomBorder, 4, 14, 0.72);
+        ApplyGlowToBorder(NickCard, 5, 16, 0.65);
+        ApplyGlowToBorder(ScoreCard, 6, 16, 0.65);
+        ApplyGlowToBorder(LevelCard, 7, 16, 0.65);
+        ApplyGlowToBorder(NextCard, 8, 16, 0.65);
+        ApplyGlowToBorder(StatusCard, 9, 16, 0.65);
+    }
+
+    private void ApplyGlowToBorder(Border target, int phase, double blurRadius, double opacity)
+    {
+        var borderBrush = new SolidColorBrush(FadePalette[phase % FadePalette.Length]);
+        target.BorderBrush = borderBrush;
+
+        var glow = new DropShadowEffect
+        {
+            BlurRadius = blurRadius,
+            ShadowDepth = 0,
+            Color = FadePalette[(phase + 2) % FadePalette.Length],
+            Opacity = opacity
+        };
+
+        target.Effect = glow;
+
+        var borderAnim = new ColorAnimationUsingKeyFrames { RepeatBehavior = RepeatBehavior.Forever, Duration = TimeSpan.FromSeconds(5.2 + phase * 0.3) };
+        for (var i = 0; i < FadePalette.Length; i++)
+        {
+            var color = FadePalette[(i + phase) % FadePalette.Length];
+            borderAnim.KeyFrames.Add(new LinearColorKeyFrame(color, KeyTime.FromPercent((double)i / (FadePalette.Length - 1))));
+        }
+
+        borderBrush.BeginAnimation(SolidColorBrush.ColorProperty, borderAnim);
+
+        var glowAnim = new ColorAnimationUsingKeyFrames { RepeatBehavior = RepeatBehavior.Forever, Duration = TimeSpan.FromSeconds(5.2 + phase * 0.3) };
+        for (var i = 0; i < FadePalette.Length; i++)
+        {
+            var color = FadePalette[(i + phase + 2) % FadePalette.Length];
+            glowAnim.KeyFrames.Add(new LinearColorKeyFrame(color, KeyTime.FromPercent((double)i / (FadePalette.Length - 1))));
+        }
+
+        glow.BeginAnimation(DropShadowEffect.ColorProperty, glowAnim);
+    }
+
+    private void ClearFadeAccentEffects()
+    {
+        foreach (var border in (Border[])[BoardBorder, AdBorder, AdSlotTopBorder, AdSlotMiddleBorder, AdSlotBottomBorder, NickCard, ScoreCard, LevelCard, NextCard, StatusCard])
+        {
+            border.Effect = null;
+        }
+    }
     private void SetCardTheme(Color bg, Color border, Color titleColor)
     {
         var bgBrush = new SolidColorBrush(bg);
         var borderBrush = new SolidColorBrush(border);
         var titleBrush = new SolidColorBrush(titleColor);
 
-        foreach (var card in (Border[])[NickCard, ScoreCard, LevelCard, NextCard, HighScoreCard, StatusCard])
+        foreach (var card in (Border[])[NickCard, ScoreCard, LevelCard, NextCard, StatusCard])
         {
             card.Background = bgBrush;
             card.BorderBrush = borderBrush;
         }
 
         TitleText.Foreground = titleBrush;
-        HighScoresListBox.BorderBrush = borderBrush;
-        HighScoresListBox.Background = new SolidColorBrush(Color.FromArgb(90, bg.R, bg.G, bg.B));
+        StartHighScoresListBox.BorderBrush = borderBrush;
+        StartHighScoresListBox.Background = new SolidColorBrush(Color.FromArgb(90, bg.R, bg.G, bg.B));
     }
 
     private void StartNewGame()
@@ -166,7 +447,12 @@ public partial class MainWindow : Window
         _linesCleared = 0;
         _gameOver = false;
         _isGameStarted = true;
+        _isPaused = false;
+        _survivalTickCounter = 0;
+        _groundedTicks = 0;
+        _lockResetsUsed = 0;
         GameOverOverlay.Visibility = Visibility.Collapsed;
+        PauseOverlay.Visibility = Visibility.Collapsed;
 
         _startLevel = StartLevelComboBox.SelectedIndex switch
         {
@@ -174,6 +460,7 @@ public partial class MainWindow : Window
             2 => 8,
             _ => 1
         };
+        _isSurvivalMode = GameModeComboBox.SelectedIndex == 1;
 
         var nick = NickTextBox.Text.Trim();
         PlayerNameText.Text = string.IsNullOrWhiteSpace(nick) ? "Gracz" : nick;
@@ -183,6 +470,8 @@ public partial class MainWindow : Window
         SpawnPiece();
         UpdateHud();
         Draw();
+        PlayEffect("startGame");
+        PlayBackgroundMusic();
         _timer.Start();
     }
 
@@ -193,23 +482,54 @@ public partial class MainWindow : Window
         _timer.Interval = TimeSpan.FromMilliseconds(speedMs);
     }
 
+    private int GetLockDelayTicks()
+    {
+        var intervalMs = Math.Max(1, _timer.Interval.TotalMilliseconds);
+        return Math.Max(2, (int)Math.Ceiling(220 / intervalMs));
+    }
+
     private void Tick()
     {
-        if (_gameOver || !_isGameStarted)
+        if (_gameOver || !_isGameStarted || _isPaused)
         {
             return;
         }
 
-        if (!TryMove(_currentX, _currentY + 1, _currentPiece.Cells))
+        if (TryMove(_currentX, _currentY + 1, _currentPiece.Cells))
         {
-            LockPiece();
-            var clearedRows = ClearFullLines();
-            if (clearedRows.Count > 0)
+            _groundedTicks = 0;
+            _lockResetsUsed = 0;
+        }
+        else
+        {
+            _groundedTicks++;
+            if (_groundedTicks >= GetLockDelayTicks())
             {
-                AnimateClearedLines(clearedRows);
-            }
+                _groundedTicks = 0;
+                LockPiece();
+                var clearedRows = ClearFullLines();
+                if (clearedRows.Count > 0)
+                {
+                    AnimateClearedLines(clearedRows);
+                }
 
-            SpawnPiece();
+                SpawnPiece();
+            }
+        }
+
+        if (_isSurvivalMode)
+        {
+            _survivalTickCounter++;
+            var interval = Math.Max(6, 22 - (_linesCleared / 6));
+            if (_survivalTickCounter >= interval)
+            {
+                _survivalTickCounter = 0;
+                AddGarbageRow();
+                if (_gameOver)
+                {
+                    return;
+                }
+            }
         }
 
         Draw();
@@ -221,6 +541,8 @@ public partial class MainWindow : Window
         _nextPiece = CreateRandomPiece();
         _currentX = BoardWidth / 2 - 2;
         _currentY = 0;
+        _groundedTicks = 0;
+        _lockResetsUsed = 0;
 
         if (!IsPositionValid(_currentX, _currentY, _currentPiece.Cells))
         {
@@ -232,8 +554,15 @@ public partial class MainWindow : Window
 
     private void OnGameOver()
     {
+        if (_gameOver)
+        {
+            return;
+        }
+
         _gameOver = true;
         _timer.Stop();
+        StopBackgroundMusic();
+        PlayEffect("defeat");
         RegisterScore();
         GameOverOverlay.Visibility = Visibility.Visible;
         StatusText.Text = "PRZEGRAŁEŚ • Spacja: menu start • Esc: zamknij";
@@ -250,22 +579,127 @@ public partial class MainWindow : Window
         }
 
         RefreshHighScores();
+        SaveHighScores();
     }
 
     private void RefreshHighScores()
     {
-        _highScoreRows.Clear();
+        StartHighScoresListBox.Items.Clear();
+
         for (var i = 0; i < 5; i++)
         {
-            if (i < _highScores.Count)
+            var hasEntry = i < _highScores.Count;
+            var entry = hasEntry ? _highScores[i] : new ScoreEntry("---", 0);
+
+            var rankText = new TextBlock
             {
-                var entry = _highScores[i];
-                _highScoreRows.Add($"{i + 1}. {entry.Name} - {entry.Points}");
-            }
-            else
+                Text = $"#{i + 1}",
+                Foreground = new SolidColorBrush(Color.FromRgb(147, 197, 253)),
+                FontWeight = FontWeights.Bold,
+                Width = 56,
+                VerticalAlignment = VerticalAlignment.Center,
+                FontSize = 18
+            };
+
+            var nameText = new TextBlock
             {
-                _highScoreRows.Add($"{i + 1}. --- 0");
-            }
+                Text = entry.Name,
+                Foreground = new SolidColorBrush(Color.FromRgb(248, 250, 252)),
+                Width = 180,
+                VerticalAlignment = VerticalAlignment.Center,
+                FontSize = 20,
+                FontWeight = FontWeights.SemiBold
+            };
+
+            var pointsText = new TextBlock
+            {
+                Text = $"{entry.Points} pkt",
+                Foreground = new SolidColorBrush(Color.FromRgb(196, 181, 253)),
+                Width = 120,
+                VerticalAlignment = VerticalAlignment.Center,
+                FontSize = 18,
+                FontWeight = FontWeights.Bold
+            };
+
+            var editBox = new TextBox
+            {
+                Text = entry.Name,
+                Visibility = Visibility.Collapsed,
+                Width = 180,
+                Margin = new Thickness(0, 0, 8, 0),
+                Background = new SolidColorBrush(Color.FromRgb(19, 38, 71)),
+                Foreground = Brushes.White,
+                BorderBrush = new SolidColorBrush(Color.FromRgb(60, 87, 124)),
+                Padding = new Thickness(6, 4, 6, 4)
+            };
+
+            var applyButton = new Button
+            {
+                Content = "✔",
+                Tag = i,
+                Width = 34,
+                Height = 30,
+                Margin = new Thickness(0, 0, 8, 0),
+                FontWeight = FontWeights.Bold,
+                Background = new SolidColorBrush(Color.FromRgb(30, 64, 175)),
+                Foreground = Brushes.White,
+                BorderBrush = new SolidColorBrush(Color.FromRgb(91, 142, 255)),
+                Visibility = hasEntry ? Visibility.Visible : Visibility.Collapsed,
+                IsEnabled = hasEntry && _isHighscoreUnlocked
+            };
+            applyButton.Click += HighscoreApplyNameButton_Click;
+
+            var editButton = new Button
+            {
+                Content = "Edytuj",
+                Tag = i,
+                Margin = new Thickness(0, 0, 8, 0),
+                Padding = new Thickness(10, 4, 10, 4),
+                Background = new SolidColorBrush(Color.FromRgb(30, 64, 175)),
+                Foreground = Brushes.White,
+                BorderBrush = new SolidColorBrush(Color.FromRgb(91, 142, 255)),
+                Visibility = hasEntry ? Visibility.Visible : Visibility.Collapsed,
+                IsEnabled = hasEntry && _isHighscoreUnlocked
+            };
+            editButton.Click += HighscoreEditNameButton_Click;
+
+            var deleteButton = new Button
+            {
+                Content = "X",
+                Tag = i,
+                Width = 34,
+                Height = 30,
+                FontWeight = FontWeights.Bold,
+                Background = new SolidColorBrush(Color.FromRgb(127, 29, 29)),
+                Foreground = Brushes.White,
+                BorderBrush = new SolidColorBrush(Color.FromRgb(248, 113, 113)),
+                Visibility = hasEntry ? Visibility.Visible : Visibility.Collapsed,
+                IsEnabled = hasEntry && _isHighscoreUnlocked
+            };
+            deleteButton.Click += HighscoreDeleteButton_Click;
+
+            var row = new DockPanel { LastChildFill = false };
+            row.Children.Add(rankText);
+            row.Children.Add(nameText);
+            row.Children.Add(pointsText);
+            row.Children.Add(editBox);
+            row.Children.Add(applyButton);
+            row.Children.Add(editButton);
+            row.Children.Add(deleteButton);
+
+            var card = new Border
+            {
+                CornerRadius = new CornerRadius(8),
+                Background = new SolidColorBrush(i % 2 == 0 ? Color.FromRgb(12, 29, 54) : Color.FromRgb(16, 36, 66)),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(60, 87, 124)),
+                BorderThickness = new Thickness(1),
+                Padding = new Thickness(10, 8, 10, 8),
+                Margin = new Thickness(0, 0, 0, 8),
+                Child = row,
+                Tag = editBox
+            };
+
+            StartHighScoresListBox.Items.Add(card);
         }
     }
 
@@ -309,11 +743,61 @@ public partial class MainWindow : Window
         return true;
     }
 
-    private void RotateCurrentPiece()
+    private void AddGarbageRow()
+    {
+        var holeX = _random.Next(BoardWidth);
+
+        for (var y = 0; y < BoardHeight - 1; y++)
+        {
+            for (var x = 0; x < BoardWidth; x++)
+            {
+                _board[y, x] = _board[y + 1, x];
+            }
+        }
+
+        for (var x = 0; x < BoardWidth; x++)
+        {
+            _board[BoardHeight - 1, x] = x == holeX ? null : Brushes.DimGray;
+        }
+
+        if (!IsPositionValid(_currentX, _currentY, _currentPiece.Cells))
+        {
+            if (TryMove(_currentX, _currentY - 1, _currentPiece.Cells))
+            {
+                _groundedTicks = 0;
+                return;
+            }
+
+            OnGameOver();
+        }
+    }
+
+    private void RefreshLockDelayAfterPlayerAction(bool actionApplied)
+    {
+        if (!actionApplied || !IsCurrentPieceGrounded())
+        {
+            return;
+        }
+
+        if (_lockResetsUsed >= MaxLockResetsPerPiece)
+        {
+            return;
+        }
+
+        _groundedTicks = 0;
+        _lockResetsUsed++;
+    }
+
+    private bool IsCurrentPieceGrounded()
+    {
+        return !IsPositionValid(_currentX, _currentY + 1, _currentPiece.Cells);
+    }
+
+    private bool RotateCurrentPiece()
     {
         if (_currentPiece.IsSquare)
         {
-            return;
+            return false;
         }
 
         var rotated = _currentPiece.Cells.Select(p => new Point(2 - p.Y, p.X)).ToArray();
@@ -327,8 +811,10 @@ public partial class MainWindow : Window
 
             _currentX += offset;
             _currentPiece = _currentPiece with { Cells = rotated };
-            return;
+            return true;
         }
+
+        return false;
     }
 
     private void HardDrop()
@@ -417,6 +903,7 @@ public partial class MainWindow : Window
         SetTimerSpeed();
         UpdateHud();
         AnimateScorePulse();
+        PlayEffect("lineClear");
         return removedRows;
     }
 
@@ -466,12 +953,17 @@ public partial class MainWindow : Window
     private void UpdateHud()
     {
         var level = _startLevel + (_linesCleared / 8);
+        var best = _highScores.Count == 0 ? 0 : _highScores.Max(h => h.Points);
         ScoreText.Text = _score.ToString();
+        BestScoreText.Text = $"BEST: {best}";
         LevelText.Text = level.ToString();
 
         if (!_gameOver)
         {
-            StatusText.Text = "Tryb szybki mocno zwiększa tempo • Strzałki/Spacja • Esc";
+            var modeText = _isSurvivalMode ? "SURVIVAL" : "KLASYCZNY";
+            StatusText.Text = _isPaused
+                ? "PAUZA • P: wznów • Esc"
+                : $"{modeText} • Strzałki: ruch/obrót • Spacja: zrzut • P: pauza • Esc";
         }
     }
 
@@ -505,10 +997,36 @@ public partial class MainWindow : Window
 
         if (!_gameOver && _isGameStarted)
         {
+            if (!_isPaused)
+            {
+                DrawGhostPiece();
+            }
+
             foreach (var cell in _currentPiece.Cells)
             {
                 DrawCell(_currentX + (int)cell.X, _currentY + (int)cell.Y, _currentPiece.Color, 1);
             }
+        }
+    }
+
+    private void DrawGhostPiece()
+    {
+        var ghostY = _currentY;
+        while (IsPositionValid(_currentX, ghostY + 1, _currentPiece.Cells))
+        {
+            ghostY++;
+        }
+
+        if (ghostY == _currentY)
+        {
+            return;
+        }
+
+        foreach (var cell in _currentPiece.Cells)
+        {
+            var ghostX = _currentX + (int)cell.X;
+            var ghostCellY = ghostY + (int)cell.Y;
+            DrawCell(ghostX, ghostCellY, _currentPiece.Color, 0.22);
         }
     }
 
@@ -534,6 +1052,12 @@ public partial class MainWindow : Window
     private void DrawNextPiece()
     {
         NextPieceCanvas.Children.Clear();
+
+        if (_nextPiece is null)
+        {
+            return;
+        }
+
         const double previewCell = 24;
 
         foreach (var cell in _nextPiece.Cells)
@@ -554,7 +1078,6 @@ public partial class MainWindow : Window
             NextPieceCanvas.Children.Add(rect);
         }
     }
-
     private void Window_KeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Escape)
@@ -579,6 +1102,7 @@ public partial class MainWindow : Window
             {
                 GameOverOverlay.Visibility = Visibility.Collapsed;
                 StartMenuOverlay.Visibility = Visibility.Visible;
+                ShowStartMenuSection(StartMenuSection.NewGame);
                 ResetAdManagerUi();
                 _isGameStarted = false;
             }
@@ -586,25 +1110,81 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (e.Key == Key.P)
+        {
+            TogglePause();
+            return;
+        }
+
+        if (_isPaused)
+        {
+            return;
+        }
+
         switch (e.Key)
         {
             case Key.Left:
-                TryMove(_currentX - 1, _currentY, _currentPiece.Cells);
+            {
+                var moved = TryMove(_currentX - 1, _currentY, _currentPiece.Cells);
+                RefreshLockDelayAfterPlayerAction(moved);
+                PlayEffect("rotate");
                 break;
+            }
             case Key.Right:
-                TryMove(_currentX + 1, _currentY, _currentPiece.Cells);
+            {
+                var moved = TryMove(_currentX + 1, _currentY, _currentPiece.Cells);
+                RefreshLockDelayAfterPlayerAction(moved);
+                PlayEffect("rotate");
                 break;
+            }
             case Key.Down:
-                TryMove(_currentX, _currentY + 1, _currentPiece.Cells);
+            {
+                var moved = TryMove(_currentX, _currentY + 1, _currentPiece.Cells);
+                if (moved)
+                {
+                    _groundedTicks = 0;
+                    _lockResetsUsed = 0;
+                }
+                PlayEffect("rotate");
                 break;
+            }
             case Key.Up:
-                RotateCurrentPiece();
+            {
+                var rotated = RotateCurrentPiece();
+                RefreshLockDelayAfterPlayerAction(rotated);
+                PlayEffect("rotate");
                 break;
+            }
             case Key.Space:
                 HardDrop();
                 return;
         }
 
+        Draw();
+    }
+
+    private void TogglePause()
+    {
+        if (!_isGameStarted || _gameOver)
+        {
+            return;
+        }
+
+        _isPaused = !_isPaused;
+        PauseOverlay.Visibility = _isPaused ? Visibility.Visible : Visibility.Collapsed;
+
+        if (_isPaused)
+        {
+            _timer.Stop();
+            StopBackgroundMusic();
+        }
+        else
+        {
+            _timer.Start();
+            PlayBackgroundMusic();
+        }
+
+        UpdateHud();
         Draw();
     }
 
@@ -676,6 +1256,84 @@ public partial class MainWindow : Window
 
         value = NormalizeSeconds(parsed, fallback);
         return parsed == value;
+    }
+
+    private void LoadHighScores()
+    {
+        _highScores.Clear();
+        if (!File.Exists(_highScoresPath))
+        {
+            RefreshHighScores();
+            return;
+        }
+
+        try
+        {
+            var json = File.ReadAllText(_highScoresPath);
+            var entries = JsonSerializer.Deserialize<List<ScoreEntry>>(json) ?? [];
+            _highScores.AddRange(entries.OrderByDescending(e => e.Points).Take(5));
+        }
+        catch
+        {
+            _highScores.Clear();
+        }
+
+        RefreshHighScores();
+    }
+
+    private void SaveHighScores()
+    {
+        var json = JsonSerializer.Serialize(_highScores, JsonWriteOptions);
+        File.WriteAllText(_highScoresPath, json);
+    }
+
+    private void LoadSettings()
+    {
+        if (!File.Exists(_settingsPath))
+        {
+            SaveSettings();
+            return;
+        }
+
+        try
+        {
+            var json = File.ReadAllText(_settingsPath);
+            var settings = JsonSerializer.Deserialize<GameSettings>(json);
+            if (settings is null)
+            {
+                return;
+            }
+
+            _isLoadingSettings = true;
+            NickTextBox.Text = string.IsNullOrWhiteSpace(settings.Nick) ? "Gracz" : settings.Nick;
+            StartLevelComboBox.SelectedIndex = Math.Clamp(settings.StartLevelIndex, 0, 2);
+            GameModeComboBox.SelectedIndex = Math.Clamp(settings.GameModeIndex, 0, 1);
+            ThemeComboBox.SelectedIndex = Math.Clamp(settings.ThemeIndex, 0, 2);
+            MusicVolumeSlider.Value = Math.Clamp(settings.MusicVolume, 0, 1);
+            EffectsVolumeSlider.Value = Math.Clamp(settings.EffectsVolume, 0, 1);
+        }
+        catch
+        {
+            // ignore settings corruption and keep defaults
+        }
+        finally
+        {
+            _isLoadingSettings = false;
+        }
+    }
+
+    private void SaveSettings()
+    {
+        var settings = new GameSettings(
+            NickTextBox.Text.Trim(),
+            StartLevelComboBox.SelectedIndex,
+            GameModeComboBox.SelectedIndex,
+            ThemeComboBox.SelectedIndex,
+            MusicVolumeSlider.Value,
+            EffectsVolumeSlider.Value);
+
+        var json = JsonSerializer.Serialize(settings, JsonWriteOptions);
+        File.WriteAllText(_settingsPath, json);
     }
 
     private void EnsureAdStorage()
@@ -886,6 +1544,7 @@ public partial class MainWindow : Window
 
     private void AddAdButton_Click(object sender, RoutedEventArgs e)
     {
+        PlayEffect("buttonClick");
         var dialog = new OpenFileDialog
         {
             Title = "Wybierz reklamę",
@@ -919,6 +1578,7 @@ public partial class MainWindow : Window
 
     private void DeleteAdButton_Click(object sender, RoutedEventArgs e)
     {
+        PlayEffect("buttonClick");
         if (AdListBox.SelectedItem is not AdEntry selected)
         {
             return;
@@ -948,6 +1608,7 @@ public partial class MainWindow : Window
 
     private void MoveAdUpButton_Click(object sender, RoutedEventArgs e)
     {
+        PlayEffect("buttonClick");
         var index = AdListBox.SelectedIndex;
         if (index <= 0)
         {
@@ -962,6 +1623,7 @@ public partial class MainWindow : Window
 
     private void MoveAdDownButton_Click(object sender, RoutedEventArgs e)
     {
+        PlayEffect("buttonClick");
         var index = AdListBox.SelectedIndex;
         if (index < 0 || index >= _ads.Count - 1)
         {
@@ -1004,6 +1666,7 @@ public partial class MainWindow : Window
 
     private void SaveSelectedAdSettingsButton_Click(object sender, RoutedEventArgs e)
     {
+        PlayEffect("buttonClick");
         if (AdListBox.SelectedItem is not AdEntry selected)
         {
             MessageBox.Show("Najpierw wybierz grafikę z listy.", "Informacja", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -1052,6 +1715,7 @@ public partial class MainWindow : Window
 
     private void SaveGlobalAdSettingsButton_Click(object sender, RoutedEventArgs e)
     {
+        PlayEffect("buttonClick");
         var rotationBox = GetRotationIntervalTextBox();
         var defaultDurationBox = GetDefaultAdDurationTextBox();
 
@@ -1091,6 +1755,162 @@ public partial class MainWindow : Window
     private TextBox? GetDefaultAdDurationTextBox() => FindName("DefaultAdDurationTextBox") as TextBox;
     private ComboBox? GetOrderModeComboBox() => FindName("OrderModeComboBox") as ComboBox;
 
+    private enum StartMenuSection
+    {
+        NewGame,
+        Highscore,
+        Settings
+    }
+
+    private void ShowStartMenuSection(StartMenuSection section)
+    {
+        NewGamePanel.Visibility = section == StartMenuSection.NewGame ? Visibility.Visible : Visibility.Collapsed;
+        HighscorePanel.Visibility = section == StartMenuSection.Highscore ? Visibility.Visible : Visibility.Collapsed;
+        SettingsPanel.Visibility = section == StartMenuSection.Settings ? Visibility.Visible : Visibility.Collapsed;
+
+        MenuNewGameButton.Background = section == StartMenuSection.NewGame ? new SolidColorBrush(Color.FromRgb(37, 99, 235)) : new SolidColorBrush(Color.FromRgb(29, 78, 216));
+        MenuHighscoreButton.Background = section == StartMenuSection.Highscore ? new SolidColorBrush(Color.FromRgb(37, 99, 235)) : new SolidColorBrush(Color.FromRgb(29, 78, 216));
+        MenuSettingsButton.Background = section == StartMenuSection.Settings ? new SolidColorBrush(Color.FromRgb(37, 99, 235)) : new SolidColorBrush(Color.FromRgb(29, 78, 216));
+    }
+
+    private void MenuNewGameButton_Click(object sender, RoutedEventArgs e)
+    {
+        PlayEffect("buttonClick");
+        ShowStartMenuSection(StartMenuSection.NewGame);
+    }
+
+    private void MenuHighscoreButton_Click(object sender, RoutedEventArgs e)
+    {
+        PlayEffect("buttonClick");
+        HighscoreManageHintText.Text = string.Empty;
+        HighscoreAuthStatusText.Text = _isHighscoreUnlocked ? "Tryb edycji aktywny." : "Tryb tylko podglądu. Zatwierdź hasło, aby edytować.";
+        ShowStartMenuSection(StartMenuSection.Highscore);
+    }
+
+    private void MenuSettingsButton_Click(object sender, RoutedEventArgs e)
+    {
+        PlayEffect("buttonClick");
+        ShowStartMenuSection(StartMenuSection.Settings);
+    }
+
+    private bool EnsureHighscoreUnlocked()
+    {
+        if (_isHighscoreUnlocked)
+        {
+            return true;
+        }
+
+        HighscoreManageHintText.Text = "Najpierw zatwierdź hasło, aby zarządzać rekordami.";
+        return false;
+    }
+
+    private void UnlockHighscoreActionsButton_Click(object sender, RoutedEventArgs e)
+    {
+        PlayEffect("buttonClick");
+        if (HighscorePasswordBox.Password != AdManagerPassword)
+        {
+            _isHighscoreUnlocked = false;
+            HighscoreAuthStatusText.Text = "❌ Błędne hasło";
+            HighscoreAuthStatusText.Foreground = new SolidColorBrush(Color.FromRgb(252, 165, 165));
+            HighscoreManageHintText.Text = "Hasło niepoprawne. Edycja zablokowana.";
+            RefreshHighScores();
+            return;
+        }
+
+        _isHighscoreUnlocked = true;
+        HighscorePasswordBox.Password = string.Empty;
+        HighscoreAuthStatusText.Text = "✅ Edycja odblokowana: możesz zmieniać nick lub usuwać rekordy.";
+        HighscoreAuthStatusText.Foreground = new SolidColorBrush(Color.FromRgb(147, 197, 253));
+        HighscoreManageHintText.Text = "Tryb edycji aktywny.";
+        RefreshHighScores();
+    }
+
+    private void HighscoreDeleteButton_Click(object sender, RoutedEventArgs e)
+    {
+        PlayEffect("buttonClick");
+        if (!EnsureHighscoreUnlocked())
+        {
+            return;
+        }
+
+        if (sender is not Button { Tag: int index } || index < 0 || index >= _highScores.Count)
+        {
+            HighscoreManageHintText.Text = "Nie udało się usunąć rekordu.";
+            return;
+        }
+
+        _highScores.RemoveAt(index);
+        RefreshHighScores();
+        SaveHighScores();
+        UpdateHud();
+        HighscoreManageHintText.Text = "Rekord usunięty.";
+    }
+
+    private void HighscoreEditNameButton_Click(object sender, RoutedEventArgs e)
+    {
+        PlayEffect("buttonClick");
+        if (!EnsureHighscoreUnlocked())
+        {
+            return;
+        }
+
+        if (sender is not Button { Tag: int index } || index < 0 || index >= _highScores.Count)
+        {
+            HighscoreManageHintText.Text = "Nie udało się edytować rekordu.";
+            return;
+        }
+
+        var rowBorder = StartHighScoresListBox.Items[index] as Border;
+        var editor = rowBorder?.Tag as TextBox;
+        if (editor is null)
+        {
+            HighscoreManageHintText.Text = "Brak pola edycji dla tego wpisu.";
+            return;
+        }
+
+        editor.Visibility = Visibility.Visible;
+        editor.Focus();
+        editor.SelectAll();
+        HighscoreManageHintText.Text = "Wpisz nowy nick i kliknij ✔.";
+    }
+
+    private void HighscoreApplyNameButton_Click(object sender, RoutedEventArgs e)
+    {
+        PlayEffect("buttonClick");
+        if (!EnsureHighscoreUnlocked())
+        {
+            return;
+        }
+
+        if (sender is not Button { Tag: int index } || index < 0 || index >= _highScores.Count)
+        {
+            HighscoreManageHintText.Text = "Nie udało się zapisać nicku.";
+            return;
+        }
+
+        var rowBorder = StartHighScoresListBox.Items[index] as Border;
+        var editor = rowBorder?.Tag as TextBox;
+        if (editor is null)
+        {
+            HighscoreManageHintText.Text = "Brak pola edycji dla tego wpisu.";
+            return;
+        }
+
+        var newName = editor.Text.Trim();
+        if (string.IsNullOrWhiteSpace(newName))
+        {
+            HighscoreManageHintText.Text = "Nick nie może być pusty.";
+            return;
+        }
+
+        var current = _highScores[index];
+        _highScores[index] = current with { Name = newName };
+        SaveHighScores();
+        RefreshHighScores();
+        UpdateHud();
+        HighscoreManageHintText.Text = "Nick zaktualizowany.";
+    }
+
     private void ResetAdManagerUi()
     {
         var panel = GetAdManagerPanel();
@@ -1113,6 +1933,7 @@ public partial class MainWindow : Window
 
     private void OpenAdManagerButton_Click(object sender, RoutedEventArgs e)
     {
+        PlayEffect("buttonClick");
         var panel = GetAdManagerPanel();
         var authPanel = GetAdManagerAuthPanel();
         var controls = GetAdManagerControls();
@@ -1134,6 +1955,7 @@ public partial class MainWindow : Window
 
     private void UnlockAdManagerButton_Click(object sender, RoutedEventArgs e)
     {
+        PlayEffect("buttonClick");
         var authPanel = GetAdManagerAuthPanel();
         var controls = GetAdManagerControls();
         var passwordBox = GetAdManagerPasswordBox();
@@ -1157,19 +1979,24 @@ public partial class MainWindow : Window
 
     private void CloseAdManagerButton_Click(object sender, RoutedEventArgs e)
     {
+        PlayEffect("buttonClick");
         ResetAdManagerUi();
     }
 
     private void StartButton_Click(object sender, RoutedEventArgs e)
     {
+        PlayEffect("buttonClick");
         ResetAdManagerUi();
         ApplyTheme();
+        SaveSettings();
         StartMenuOverlay.Visibility = Visibility.Collapsed;
         StartNewGame();
     }
 
     private void ExitButton_Click(object sender, RoutedEventArgs e)
     {
+        PlayEffect("buttonClick");
+        SaveSettings();
         Close();
     }
 
@@ -1181,6 +2008,7 @@ public partial class MainWindow : Window
 
     private record Tetromino(Point[] Cells, Brush Color, bool IsSquare);
     private record ScoreEntry(string Name, int Points);
+    private record GameSettings(string Nick, int StartLevelIndex, int GameModeIndex, int ThemeIndex, double MusicVolume, double EffectsVolume);
 
     private enum AdOrderMode
     {
