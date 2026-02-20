@@ -283,12 +283,13 @@ public partial class MainWindow : Window
             AdBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(92, 132, 226));
             BoardBorder.Background = new SolidColorBrush(Color.FromRgb(5, 9, 34));
             ApplyBoardGlowAnimation();
+            ApplyFadeAccentAnimations();
             _visualFxTimer.Start();
         }
         else
         {
             _visualFxTimer.Stop();
-            BoardBorder.Effect = null;
+            ClearFadeAccentEffects();
             if (ThemeComboBox.SelectedIndex == 1)
             {
                 _activePaletteBrushes = RetroPalette.Select(c => (Brush)new SolidColorBrush(c)).ToArray();
@@ -373,6 +374,58 @@ public partial class MainWindow : Window
         glow.BeginAnimation(DropShadowEffect.ColorProperty, glowAnim);
     }
 
+
+    private void ApplyFadeAccentAnimations()
+    {
+        ApplyGlowToBorder(AdBorder, 1, 22, 0.85);
+        ApplyGlowToBorder(NickCard, 2, 16, 0.65);
+        ApplyGlowToBorder(ScoreCard, 3, 16, 0.65);
+        ApplyGlowToBorder(LevelCard, 4, 16, 0.65);
+        ApplyGlowToBorder(NextCard, 5, 16, 0.65);
+        ApplyGlowToBorder(StatusCard, 6, 16, 0.65);
+    }
+
+    private void ApplyGlowToBorder(Border target, int phase, double blurRadius, double opacity)
+    {
+        var borderBrush = new SolidColorBrush(FadePalette[phase % FadePalette.Length]);
+        target.BorderBrush = borderBrush;
+
+        var glow = new DropShadowEffect
+        {
+            BlurRadius = blurRadius,
+            ShadowDepth = 0,
+            Color = FadePalette[(phase + 2) % FadePalette.Length],
+            Opacity = opacity
+        };
+
+        target.Effect = glow;
+
+        var borderAnim = new ColorAnimationUsingKeyFrames { RepeatBehavior = RepeatBehavior.Forever, Duration = TimeSpan.FromSeconds(5.2 + phase * 0.3) };
+        for (var i = 0; i < FadePalette.Length; i++)
+        {
+            var color = FadePalette[(i + phase) % FadePalette.Length];
+            borderAnim.KeyFrames.Add(new LinearColorKeyFrame(color, KeyTime.FromPercent((double)i / (FadePalette.Length - 1))));
+        }
+
+        borderBrush.BeginAnimation(SolidColorBrush.ColorProperty, borderAnim);
+
+        var glowAnim = new ColorAnimationUsingKeyFrames { RepeatBehavior = RepeatBehavior.Forever, Duration = TimeSpan.FromSeconds(5.2 + phase * 0.3) };
+        for (var i = 0; i < FadePalette.Length; i++)
+        {
+            var color = FadePalette[(i + phase + 2) % FadePalette.Length];
+            glowAnim.KeyFrames.Add(new LinearColorKeyFrame(color, KeyTime.FromPercent((double)i / (FadePalette.Length - 1))));
+        }
+
+        glow.BeginAnimation(DropShadowEffect.ColorProperty, glowAnim);
+    }
+
+    private void ClearFadeAccentEffects()
+    {
+        foreach (var border in (Border[])[BoardBorder, AdBorder, NickCard, ScoreCard, LevelCard, NextCard, StatusCard])
+        {
+            border.Effect = null;
+        }
+    }
     private void SetCardTheme(Color bg, Color border, Color titleColor)
     {
         var bgBrush = new SolidColorBrush(bg);
