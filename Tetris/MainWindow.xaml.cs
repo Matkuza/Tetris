@@ -902,6 +902,12 @@ public partial class MainWindow : Window
     private void DrawNextPiece()
     {
         NextPieceCanvas.Children.Clear();
+
+        if (_nextPiece is null)
+        {
+            return;
+        }
+
         const double previewCell = 24;
 
         foreach (var cell in _nextPiece.Cells)
