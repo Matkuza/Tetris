@@ -44,6 +44,8 @@ public partial class MainWindow : Window
     private static readonly JsonSerializerOptions JsonWriteOptions = new() { WriteIndented = true };
     private const int MinAdSeconds = 2;
     private const int MaxAdSeconds = 120;
+    private const double MaxMusicOutputVolume = 0.18;
+    private const double MaxEffectsOutputVolume = 0.30;
 
     private int _defaultAdDurationSeconds = 10;
     private int _rotationIntervalSeconds = 1;
@@ -113,7 +115,7 @@ public partial class MainWindow : Window
             _backgroundMusicPlayer.Position = TimeSpan.Zero;
             _backgroundMusicPlayer.Play();
         };
-        _backgroundMusicPlayer.Volume = _musicVolume;
+        _backgroundMusicPlayer.Volume = ScaleVolume(_musicVolume, MaxMusicOutputVolume);
 
         HighScoresListBox.ItemsSource = _highScoreRows;
         AdListBox.ItemsSource = _ads;
@@ -154,26 +156,32 @@ public partial class MainWindow : Window
 
             var player = new MediaPlayer();
             player.Open(uri);
-            player.Volume = _effectsVolume;
+            player.Volume = ScaleVolume(_effectsVolume, MaxEffectsOutputVolume);
             _effectPlayers[key] = player;
         }
     }
 
+    private static double ScaleVolume(double uiValue, double maxOutput)
+    {
+        var normalized = Math.Clamp(uiValue, 0, 1);
+        return Math.Pow(normalized, 2.2) * maxOutput;
+    }
+
     private void PlayEffect(string soundKey)
     {
-        if (_effectsVolume <= 0 || !_effectPlayers.TryGetValue(soundKey, out var player))
+        if (_effectsVolume <= 0.001 || !_effectPlayers.TryGetValue(soundKey, out var player))
         {
             return;
         }
 
-        player.Volume = _effectsVolume;
+        player.Volume = ScaleVolume(_effectsVolume, MaxEffectsOutputVolume);
         player.Position = TimeSpan.Zero;
         player.Play();
     }
 
     private void PlayBackgroundMusic()
     {
-        if (_musicVolume <= 0)
+        if (_musicVolume <= 0.001)
         {
             return;
         }
@@ -184,7 +192,7 @@ public partial class MainWindow : Window
         }
 
         _backgroundMusicPlayer.Open(uri);
-        _backgroundMusicPlayer.Volume = _musicVolume;
+        _backgroundMusicPlayer.Volume = ScaleVolume(_musicVolume, MaxMusicOutputVolume);
         _backgroundMusicPlayer.Position = TimeSpan.Zero;
         _backgroundMusicPlayer.Play();
     }
@@ -199,22 +207,22 @@ public partial class MainWindow : Window
         _effectsVolume = Math.Clamp(e.NewValue, 0, 1);
         foreach (var player in _effectPlayers.Values)
         {
-            player.Volume = _effectsVolume;
+            player.Volume = ScaleVolume(_effectsVolume, MaxEffectsOutputVolume);
         }
     }
 
     private void MusicVolumeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
         _musicVolume = Math.Clamp(e.NewValue, 0, 1);
-        _backgroundMusicPlayer.Volume = _musicVolume;
+        _backgroundMusicPlayer.Volume = ScaleVolume(_musicVolume, MaxMusicOutputVolume);
 
-        if (_musicVolume <= 0)
+        if (_musicVolume <= 0.001)
         {
             StopBackgroundMusic();
             return;
         }
 
-        if (_isGameStarted && !_gameOver && StartMenuOverlay.Visibility != Visibility.Visible)
+        if (e.OldValue <= 0.001 && _isGameStarted && !_gameOver && StartMenuOverlay.Visibility != Visibility.Visible)
         {
             PlayBackgroundMusic();
         }
