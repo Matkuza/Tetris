@@ -166,6 +166,7 @@
                 <StackPanel>
                     <TextBlock Text="WYNIK" Foreground="#94A3B8" FontSize="13" />
                     <TextBlock x:Name="ScoreText" Text="0" Foreground="#F8FAFC" FontSize="32" FontWeight="SemiBold" />
+                    <TextBlock x:Name="BestScoreText" Text="BEST: 0" Foreground="#94A3B8" FontSize="15" Margin="0,4,0,0" />
                 </StackPanel>
             </Border>
 
@@ -183,16 +184,9 @@
                 </StackPanel>
             </Border>
 
-            <Border x:Name="HoldCard" CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="16" Margin="0,0,0,12">
-                <StackPanel>
-                    <TextBlock Text="HOLD (C)" Foreground="#94A3B8" FontSize="13" Margin="0,0,0,8" />
-                    <Canvas x:Name="HoldPieceCanvas" Width="130" Height="120" />
-                </StackPanel>
-            </Border>
-
             <Border x:Name="StatusCard" CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="14">
                 <TextBlock x:Name="StatusText"
-                           Text="Strzałki: ruch/obrót • Spacja: zrzut • C: hold • P: pauza • Esc"
+                           Text="Strzałki: ruch/obrót • Spacja: zrzut • P: pauza • Esc"
                            Foreground="#A9B7CB"
                            TextWrapping="Wrap"
                            FontSize="14" />
@@ -266,6 +260,12 @@
 
                     <Grid Grid.Row="2">
                         <Grid.Resources>
+                            <Style TargetType="ComboBox">
+                                <Setter Property="Background" Value="#0A162C" />
+                                <Setter Property="Foreground" Value="#F8FAFC" />
+                                <Setter Property="BorderBrush" Value="#3C577C" />
+                                <Setter Property="Padding" Value="8" />
+                            </Style>
                             <Style TargetType="ComboBoxItem">
                                 <Setter Property="Background" Value="#132647" />
                                 <Setter Property="Foreground" Value="#F8FAFC" />
@@ -297,6 +297,19 @@
                                     <ComboBoxItem Content="1 - Wolny" />
                                     <ComboBoxItem Content="2 - Dynamiczny" />
                                     <ComboBoxItem Content="3 - Turbo" />
+                                </ComboBox>
+
+                                <TextBlock Text="Tryb gry" Foreground="#CBD5E1" FontSize="18" />
+                                <ComboBox x:Name="GameModeComboBox"
+                                          SelectedIndex="0"
+                                          Margin="0,8,0,16"
+                                          Padding="8"
+                                          FontSize="18"
+                                          Background="#0A162C"
+                                          Foreground="#F8FAFC"
+                                          BorderBrush="#3C577C">
+                                    <ComboBoxItem Content="Klasyczny" />
+                                    <ComboBoxItem Content="Survival" />
                                 </ComboBox>
 
                                 <TextBlock Text="Tryb kolorów" Foreground="#CBD5E1" FontSize="18" />
@@ -342,11 +355,29 @@
                                            FontWeight="Bold"
                                            Margin="0,0,0,14" />
                                 <ListBox x:Name="StartHighScoresListBox"
-                                         Height="560"
+                                         Height="470"
                                          Background="#0A162C"
                                          BorderBrush="#3C577C"
                                          Foreground="#F8FAFC"
                                          FontSize="26" />
+                                <TextBlock Text="Hasło do zarządzania rekordami" Foreground="#CBD5E1" Margin="0,12,0,4" />
+                                <PasswordBox x:Name="HighscorePasswordBox"
+                                             Background="#132647"
+                                             Foreground="#F8FAFC"
+                                             BorderBrush="#3C577C"
+                                             Padding="8" />
+                                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                    <Button Content="Usuń zaznaczony"
+                                            Click="DeleteSelectedHighscoreButton_Click"
+                                            Padding="12,6"
+                                            Margin="0,0,8,0" />
+                                    <Button Content="Wyczyść wszystkie"
+                                            Click="ClearHighscoresButton_Click"
+                                            Padding="12,6" />
+                                </StackPanel>
+                                <TextBlock x:Name="HighscoreManageHintText"
+                                           Foreground="#FCA5A5"
+                                           Margin="0,8,0,0" />
                             </StackPanel>
                         </Border>
 

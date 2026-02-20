@@ -62,9 +62,10 @@ public partial class MainWindow : Window
     private bool _gameOver;
     private bool _isGameStarted;
     private bool _isPaused;
-    private bool _canHold;
     private bool _isLoadingSettings = true;
     private int _startLevel;
+    private bool _isSurvivalMode;
+    private int _survivalTickCounter;
     private double _cellSize = 36;
 
     private readonly MediaPlayer _backgroundMusicPlayer = new();
@@ -74,7 +75,6 @@ public partial class MainWindow : Window
     private double _effectsVolume = 0.8;
     private double _musicVolume = 0.6;
 
-    private Tetromino? _heldPiece;
 
     private Color _emptyCellColor = Color.FromRgb(12, 20, 38);
 
@@ -285,7 +285,7 @@ public partial class MainWindow : Window
         var borderBrush = new SolidColorBrush(border);
         var titleBrush = new SolidColorBrush(titleColor);
 
-        foreach (var card in (Border[])[NickCard, ScoreCard, LevelCard, NextCard, HoldCard, StatusCard])
+        foreach (var card in (Border[])[NickCard, ScoreCard, LevelCard, NextCard, StatusCard])
         {
             card.Background = bgBrush;
             card.BorderBrush = borderBrush;
@@ -304,8 +304,7 @@ public partial class MainWindow : Window
         _gameOver = false;
         _isGameStarted = true;
         _isPaused = false;
-        _canHold = true;
-        _heldPiece = null;
+        _survivalTickCounter = 0;
         GameOverOverlay.Visibility = Visibility.Collapsed;
         PauseOverlay.Visibility = Visibility.Collapsed;
 
@@ -315,13 +314,13 @@ public partial class MainWindow : Window
             2 => 8,
             _ => 1
         };
+        _isSurvivalMode = GameModeComboBox.SelectedIndex == 1;
 
         var nick = NickTextBox.Text.Trim();
         PlayerNameText.Text = string.IsNullOrWhiteSpace(nick) ? "Gracz" : nick;
 
         SetTimerSpeed();
         _nextPiece = CreateRandomPiece();
-        DrawHeldPiece();
         SpawnPiece();
         UpdateHud();
         Draw();
@@ -356,6 +355,17 @@ public partial class MainWindow : Window
             SpawnPiece();
         }
 
+        if (_isSurvivalMode)
+        {
+            _survivalTickCounter++;
+            var interval = Math.Max(6, 22 - (_linesCleared / 6));
+            if (_survivalTickCounter >= interval)
+            {
+                _survivalTickCounter = 0;
+                AddGarbageRow();
+            }
+        }
+
         Draw();
     }
 
@@ -363,7 +373,6 @@ public partial class MainWindow : Window
     {
         _currentPiece = _nextPiece;
         _nextPiece = CreateRandomPiece();
-        _canHold = true;
         _currentX = BoardWidth / 2 - 2;
         _currentY = 0;
 
@@ -373,7 +382,6 @@ public partial class MainWindow : Window
         }
 
         DrawNextPiece();
-        DrawHeldPiece();
     }
 
     private void OnGameOver()
@@ -456,6 +464,38 @@ public partial class MainWindow : Window
         }
 
         return true;
+    }
+
+    private void AddGarbageRow()
+    {
+        var holeX = _random.Next(BoardWidth);
+
+        for (var x = 0; x < BoardWidth; x++)
+        {
+            if (_board[0, x] is not null)
+            {
+                OnGameOver();
+                return;
+            }
+        }
+
+        for (var y = 0; y < BoardHeight - 1; y++)
+        {
+            for (var x = 0; x < BoardWidth; x++)
+            {
+                _board[y, x] = _board[y + 1, x];
+            }
+        }
+
+        for (var x = 0; x < BoardWidth; x++)
+        {
+            _board[BoardHeight - 1, x] = x == holeX ? null : Brushes.DimGray;
+        }
+
+        if (!IsPositionValid(_currentX, _currentY, _currentPiece.Cells))
+        {
+            OnGameOver();
+        }
     }
 
     private void RotateCurrentPiece()
@@ -616,14 +656,17 @@ public partial class MainWindow : Window
     private void UpdateHud()
     {
         var level = _startLevel + (_linesCleared / 8);
+        var best = _highScores.Count == 0 ? 0 : _highScores.Max(h => h.Points);
         ScoreText.Text = _score.ToString();
+        BestScoreText.Text = $"BEST: {best}";
         LevelText.Text = level.ToString();
 
         if (!_gameOver)
         {
+            var modeText = _isSurvivalMode ? "SURVIVAL" : "KLASYCZNY";
             StatusText.Text = _isPaused
                 ? "PAUZA • P: wznów • Esc"
-                : "Strzałki: ruch/obrót • Spacja: zrzut • C: hold • P: pauza • Esc";
+                : $"{modeText} • Strzałki: ruch/obrót • Spacja: zrzut • P: pauza • Esc";
         }
     }
 
@@ -732,75 +775,6 @@ public partial class MainWindow : Window
             NextPieceCanvas.Children.Add(rect);
         }
     }
-
-    private void DrawHeldPiece()
-    {
-        HoldPieceCanvas.Children.Clear();
-        if (_heldPiece is null)
-        {
-            return;
-        }
-
-        const double previewCell = 24;
-        foreach (var cell in _heldPiece.Cells)
-        {
-            var rect = new Rectangle
-            {
-                Width = previewCell,
-                Height = previewCell,
-                RadiusX = 5,
-                RadiusY = 5,
-                Fill = _heldPiece.Color,
-                Stroke = Brushes.Black,
-                StrokeThickness = 1
-            };
-
-            Canvas.SetLeft(rect, cell.X * previewCell + 18);
-            Canvas.SetTop(rect, cell.Y * previewCell + 16);
-            HoldPieceCanvas.Children.Add(rect);
-        }
-    }
-
-    private static Tetromino ClonePiece(Tetromino source)
-    {
-        return source with { Cells = source.Cells.Select(p => new Point(p.X, p.Y)).ToArray() };
-    }
-
-    private void HoldCurrentPiece()
-    {
-        if (!_canHold || !_isGameStarted || _gameOver)
-        {
-            return;
-        }
-
-        if (_heldPiece is null)
-        {
-            _heldPiece = ClonePiece(_currentPiece);
-            _currentPiece = _nextPiece;
-            _nextPiece = CreateRandomPiece();
-        }
-        else
-        {
-            var swap = ClonePiece(_heldPiece!);
-            _heldPiece = ClonePiece(_currentPiece);
-            _currentPiece = swap;
-        }
-
-        _canHold = false;
-        _currentX = BoardWidth / 2 - 2;
-        _currentY = 0;
-
-        if (!IsPositionValid(_currentX, _currentY, _currentPiece.Cells))
-        {
-            OnGameOver();
-            return;
-        }
-
-        DrawNextPiece();
-        DrawHeldPiece();
-        Draw();
-    }
-
     private void Window_KeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Escape)
@@ -862,10 +836,6 @@ public partial class MainWindow : Window
                 RotateCurrentPiece();
                 PlayEffect("rotate");
                 break;
-            case Key.C:
-                HoldCurrentPiece();
-                PlayEffect("rotate");
-                return;
             case Key.Space:
                 HardDrop();
                 return;
@@ -1018,6 +988,7 @@ public partial class MainWindow : Window
             _isLoadingSettings = true;
             NickTextBox.Text = string.IsNullOrWhiteSpace(settings.Nick) ? "Gracz" : settings.Nick;
             StartLevelComboBox.SelectedIndex = Math.Clamp(settings.StartLevelIndex, 0, 2);
+            GameModeComboBox.SelectedIndex = Math.Clamp(settings.GameModeIndex, 0, 1);
             ThemeComboBox.SelectedIndex = Math.Clamp(settings.ThemeIndex, 0, 1);
             MusicVolumeSlider.Value = Math.Clamp(settings.MusicVolume, 0, 1);
             EffectsVolumeSlider.Value = Math.Clamp(settings.EffectsVolume, 0, 1);
@@ -1037,6 +1008,7 @@ public partial class MainWindow : Window
         var settings = new GameSettings(
             NickTextBox.Text.Trim(),
             StartLevelComboBox.SelectedIndex,
+            GameModeComboBox.SelectedIndex,
             ThemeComboBox.SelectedIndex,
             MusicVolumeSlider.Value,
             EffectsVolumeSlider.Value);
@@ -1491,6 +1463,7 @@ public partial class MainWindow : Window
     private void MenuHighscoreButton_Click(object sender, RoutedEventArgs e)
     {
         PlayEffect("buttonClick");
+        HighscoreManageHintText.Text = string.Empty;
         ShowStartMenuSection(StartMenuSection.Highscore);
     }
 
@@ -1498,6 +1471,45 @@ public partial class MainWindow : Window
     {
         PlayEffect("buttonClick");
         ShowStartMenuSection(StartMenuSection.Settings);
+    }
+
+    private void DeleteSelectedHighscoreButton_Click(object sender, RoutedEventArgs e)
+    {
+        PlayEffect("buttonClick");
+        if (HighscorePasswordBox.Password != AdManagerPassword)
+        {
+            HighscoreManageHintText.Text = "Błędne hasło";
+            return;
+        }
+
+        var index = StartHighScoresListBox.SelectedIndex;
+        if (index < 0 || index >= _highScores.Count)
+        {
+            HighscoreManageHintText.Text = "Wybierz rekord do usunięcia.";
+            return;
+        }
+
+        _highScores.RemoveAt(index);
+        RefreshHighScores();
+        SaveHighScores();
+        UpdateHud();
+        HighscoreManageHintText.Text = "Usunięto rekord.";
+    }
+
+    private void ClearHighscoresButton_Click(object sender, RoutedEventArgs e)
+    {
+        PlayEffect("buttonClick");
+        if (HighscorePasswordBox.Password != AdManagerPassword)
+        {
+            HighscoreManageHintText.Text = "Błędne hasło";
+            return;
+        }
+
+        _highScores.Clear();
+        RefreshHighScores();
+        SaveHighScores();
+        UpdateHud();
+        HighscoreManageHintText.Text = "Wyczyszczono wszystkie rekordy.";
     }
 
     private void ResetAdManagerUi()
@@ -1597,7 +1609,7 @@ public partial class MainWindow : Window
 
     private record Tetromino(Point[] Cells, Brush Color, bool IsSquare);
     private record ScoreEntry(string Name, int Points);
-    private record GameSettings(string Nick, int StartLevelIndex, int ThemeIndex, double MusicVolume, double EffectsVolume);
+    private record GameSettings(string Nick, int StartLevelIndex, int GameModeIndex, int ThemeIndex, double MusicVolume, double EffectsVolume);
 
     private enum AdOrderMode
     {
