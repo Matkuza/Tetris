@@ -240,7 +240,7 @@
                     <TextBlock Text="Tryb kolorów" Foreground="#CBD5E1" />
                     <ComboBox x:Name="ThemeComboBox"
                               SelectedIndex="0"
-                              Margin="0,6,0,18"
+                              Margin="0,6,0,12"
                               Padding="6"
                               FontSize="15"
                               Background="#0F1C34"
@@ -250,6 +250,21 @@
                         <ComboBoxItem Content="Sunset Retro" />
                     </ComboBox>
 
+                    <WrapPanel Margin="0,0,0,18">
+                        <CheckBox x:Name="MusicEnabledCheckBox"
+                                  Content="Muzyka"
+                                  IsChecked="True"
+                                  Checked="MusicEnabledCheckBox_Changed"
+                                  Unchecked="MusicEnabledCheckBox_Changed"
+                                  Foreground="#E2E8F0"
+                                  Margin="0,0,18,0" />
+                        <CheckBox x:Name="EffectsEnabledCheckBox"
+                                  Content="Efekty"
+                                  IsChecked="True"
+                                  Checked="EffectsEnabledCheckBox_Changed"
+                                  Unchecked="EffectsEnabledCheckBox_Changed"
+                                  Foreground="#E2E8F0" />
+                    </WrapPanel>
 
                     <Button Content="Opcje reklam (hasło)"
                             Click="OpenAdManagerButton_Click"

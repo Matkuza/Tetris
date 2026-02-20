@@ -61,8 +61,11 @@ public partial class MainWindow : Window
     private double _cellSize = 36;
 
     private readonly MediaPlayer _backgroundMusicPlayer = new();
-    private readonly MediaPlayer _effectsPlayer = new();
     private readonly Dictionary<string, Uri> _soundUris;
+    private readonly Dictionary<string, MediaPlayer> _effectPlayers = new();
+
+    private bool _areEffectsEnabled = true;
+    private bool _isMusicEnabled = true;
 
     private Color _emptyCellColor = Color.FromRgb(12, 20, 38);
 
@@ -104,6 +107,7 @@ public partial class MainWindow : Window
         _adStorageFolder = ResolveAdStoragePath();
         _adManifestPath = IOPath.Combine(_adStorageFolder, "ads.json");
         _soundUris = CreateSoundUriMap();
+        InitializeEffectPlayers();
         _backgroundMusicPlayer.MediaEnded += (_, _) =>
         {
             _backgroundMusicPlayer.Position = TimeSpan.Zero;
@@ -138,20 +142,39 @@ public partial class MainWindow : Window
         };
     }
 
+    private void InitializeEffectPlayers()
+    {
+        foreach (var (key, uri) in _soundUris)
+        {
+            if (key == "gameMusic" || !File.Exists(uri.LocalPath))
+            {
+                continue;
+            }
+
+            var player = new MediaPlayer();
+            player.Open(uri);
+            _effectPlayers[key] = player;
+        }
+    }
+
     private void PlayEffect(string soundKey)
     {
-        if (!_soundUris.TryGetValue(soundKey, out var uri) || !File.Exists(uri.LocalPath))
+        if (!_areEffectsEnabled || !_effectPlayers.TryGetValue(soundKey, out var player))
         {
             return;
         }
 
-        _effectsPlayer.Open(uri);
-        _effectsPlayer.Position = TimeSpan.Zero;
-        _effectsPlayer.Play();
+        player.Position = TimeSpan.Zero;
+        player.Play();
     }
 
     private void PlayBackgroundMusic()
     {
+        if (!_isMusicEnabled)
+        {
+            return;
+        }
+
         if (!_soundUris.TryGetValue("gameMusic", out var uri) || !File.Exists(uri.LocalPath))
         {
             return;
@@ -165,6 +188,28 @@ public partial class MainWindow : Window
     private void StopBackgroundMusic()
     {
         _backgroundMusicPlayer.Stop();
+    }
+
+    private void EffectsEnabledCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        _areEffectsEnabled = EffectsEnabledCheckBox.IsChecked == true;
+    }
+
+    private void MusicEnabledCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        _isMusicEnabled = MusicEnabledCheckBox.IsChecked == true;
+
+        if (_isMusicEnabled)
+        {
+            if (_isGameStarted && !_gameOver && StartMenuOverlay.Visibility != Visibility.Visible)
+            {
+                PlayBackgroundMusic();
+            }
+
+            return;
+        }
+
+        StopBackgroundMusic();
     }
 
     private void ApplyTheme()
