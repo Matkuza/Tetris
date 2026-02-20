@@ -1,11 +1,17 @@
 using System.Collections.ObjectModel;
+using System.IO;
+using IOPath = System.IO.Path;
+using System.Text.Json;
+using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using System.Windows.Threading;
+using Microsoft.Win32;
 
 namespace Tetris;
 
@@ -13,6 +19,7 @@ public partial class MainWindow : Window
 {
     private const int BoardWidth = 10;
     private const int BoardHeight = 20;
+    private const string AdManagerPassword = "12345";
 
     private readonly Brush?[,] _board = new Brush?[BoardHeight, BoardWidth];
     private readonly Random _random = new();
@@ -27,6 +34,20 @@ public partial class MainWindow : Window
     ];
 
     private readonly List<ScoreEntry> _highScores = [];
+    private readonly ObservableCollection<AdEntry> _ads = [];
+    private readonly DispatcherTimer _adTimer;
+    private readonly Dictionary<AdPanel, AdPlaybackState> _adStates = new();
+
+    private readonly string _adStorageFolder;
+    private readonly string _adManifestPath;
+
+    private static readonly JsonSerializerOptions JsonWriteOptions = new() { WriteIndented = true };
+    private const int MinAdSeconds = 2;
+    private const int MaxAdSeconds = 120;
+
+    private int _defaultAdDurationSeconds = 10;
+    private int _rotationIntervalSeconds = 1;
+    private AdOrderMode _adOrderMode = AdOrderMode.Sequential;
 
     private Tetromino _currentPiece = null!;
     private Tetromino _nextPiece = null!;
@@ -73,12 +94,24 @@ public partial class MainWindow : Window
         InitializeComponent();
         _timer = new DispatcherTimer();
         _timer.Tick += (_, _) => Tick();
+        _adTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _adTimer.Tick += (_, _) => RotateAds();
+
+        _adStorageFolder = ResolveAdStoragePath();
+        _adManifestPath = IOPath.Combine(_adStorageFolder, "ads.json");
 
         HighScoresListBox.ItemsSource = _highScoreRows;
+        AdListBox.ItemsSource = _ads;
 
+        ConfigureAdStates();
+        EnsureAdStorage();
+        LoadAds();
+        ApplyLoadedGlobalSettingsToUi();
         ApplyTheme();
         UpdateBoardLayout();
         Draw();
+        RotateAds();
+        _adTimer.Start();
     }
 
     private void ApplyTheme()
@@ -115,7 +148,7 @@ public partial class MainWindow : Window
         var borderBrush = new SolidColorBrush(border);
         var titleBrush = new SolidColorBrush(titleColor);
 
-        foreach (var card in new[] { NickCard, ScoreCard, LevelCard, NextCard, HighScoreCard, StatusCard })
+        foreach (var card in (Border[])[NickCard, ScoreCard, LevelCard, NextCard, HighScoreCard, StatusCard])
         {
             card.Background = bgBrush;
             card.BorderBrush = borderBrush;
@@ -330,7 +363,7 @@ public partial class MainWindow : Window
 
     private List<int> ClearFullLines()
     {
-        var removedRows = new List<int>();
+        List<int> removedRows = [];
 
         for (var y = BoardHeight - 1; y >= 0; y--)
         {
@@ -546,6 +579,7 @@ public partial class MainWindow : Window
             {
                 GameOverOverlay.Visibility = Visibility.Collapsed;
                 StartMenuOverlay.Visibility = Visibility.Visible;
+                ResetAdManagerUi();
                 _isGameStarted = false;
             }
 
@@ -574,8 +608,561 @@ public partial class MainWindow : Window
         Draw();
     }
 
+    private static string ResolveAdStoragePath()
+    {
+        var current = new DirectoryInfo(AppContext.BaseDirectory);
+        while (current is not null)
+        {
+            var projectFile = IOPath.Combine(current.FullName, "Tetris.csproj");
+            if (File.Exists(projectFile))
+            {
+                return IOPath.Combine(current.FullName, "AdAssets");
+            }
+
+            current = current.Parent;
+        }
+
+        return IOPath.Combine(AppContext.BaseDirectory, "AdAssets");
+    }
+
+    private void ConfigureAdStates()
+    {
+        _adStates.Clear();
+        _adStates[AdPanel.Top] = new AdPlaybackState();
+        _adStates[AdPanel.Middle] = new AdPlaybackState();
+        _adStates[AdPanel.Bottom] = new AdPlaybackState();
+    }
+
+    private void ApplyLoadedGlobalSettingsToUi()
+    {
+        var rotationBox = GetRotationIntervalTextBox();
+        var defaultDurationBox = GetDefaultAdDurationTextBox();
+        if (rotationBox is not null)
+        {
+            rotationBox.Text = _rotationIntervalSeconds.ToString(CultureInfo.InvariantCulture);
+        }
+
+        if (defaultDurationBox is not null)
+        {
+            defaultDurationBox.Text = _defaultAdDurationSeconds.ToString(CultureInfo.InvariantCulture);
+        }
+
+        var orderModeComboBox = GetOrderModeComboBox();
+        if (orderModeComboBox is not null)
+        {
+            orderModeComboBox.SelectedIndex = _adOrderMode == AdOrderMode.Random ? 1 : 0;
+        }
+
+        _adTimer.Interval = TimeSpan.FromSeconds(_rotationIntervalSeconds);
+    }
+
+    private static int NormalizeSeconds(int value, int fallback)
+    {
+        if (value < MinAdSeconds || value > MaxAdSeconds)
+        {
+            return fallback;
+        }
+
+        return value;
+    }
+
+    private static bool ParseSeconds(string? text, int fallback, out int value)
+    {
+        if (!int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
+        {
+            value = fallback;
+            return false;
+        }
+
+        value = NormalizeSeconds(parsed, fallback);
+        return parsed == value;
+    }
+
+    private void EnsureAdStorage()
+    {
+        Directory.CreateDirectory(_adStorageFolder);
+    }
+
+    private void LoadAds()
+    {
+        _ads.Clear();
+
+        if (!File.Exists(_adManifestPath))
+        {
+            SaveAdsManifest();
+            return;
+        }
+
+        try
+        {
+            var json = File.ReadAllText(_adManifestPath);
+            var root = JsonSerializer.Deserialize<AdManifestRoot>(json);
+
+            List<AdManifestItem> items;
+            if (root is null)
+            {
+                items = JsonSerializer.Deserialize<List<AdManifestItem>>(json) ?? [];
+            }
+            else
+            {
+                _rotationIntervalSeconds = NormalizeSeconds(root.RotationIntervalSeconds, 1);
+                _defaultAdDurationSeconds = NormalizeSeconds(root.DefaultAdDurationSeconds, 10);
+                _adOrderMode = root.OrderMode;
+                items = root.Ads;
+            }
+
+            foreach (var item in items)
+            {
+                var fullPath = IOPath.Combine(_adStorageFolder, item.FileName);
+                if (!File.Exists(fullPath))
+                {
+                    continue;
+                }
+
+                var duration = NormalizeSeconds(item.DurationSeconds, _defaultAdDurationSeconds);
+                var panels = item.Panels == 0 ? AdPanel.Top | AdPanel.Middle | AdPanel.Bottom : item.Panels;
+                _ads.Add(new AdEntry(item.FileName, item.DisplayName, duration, panels));
+            }
+        }
+        catch
+        {
+            _ads.Clear();
+        }
+    }
+
+    private void SaveAdsManifest()
+    {
+        List<AdManifestItem> items = [.. _ads.Select(a => new AdManifestItem(a.FileName, a.DisplayName, a.DurationSeconds, a.Panels))];
+        var root = new AdManifestRoot(_defaultAdDurationSeconds, _rotationIntervalSeconds, _adOrderMode, items);
+        var json = JsonSerializer.Serialize(root, JsonWriteOptions);
+        File.WriteAllText(_adManifestPath, json);
+    }
+
+    private void RotateAds()
+    {
+        HashSet<string> usedInFrame = [];
+
+        RenderPanel(AdPanel.Top, AdImageTop, AdPlaceholderTop, usedInFrame);
+        RenderPanel(AdPanel.Middle, AdImageMiddle, AdPlaceholderMiddle, usedInFrame);
+        RenderPanel(AdPanel.Bottom, AdImageBottom, AdPlaceholderBottom, usedInFrame);
+    }
+
+    private void RenderPanel(AdPanel panel, Image target, TextBlock placeholder, HashSet<string> usedInFrame)
+    {
+        if (!_adStates.TryGetValue(panel, out var state))
+        {
+            return;
+        }
+
+        if (_ads.Count == 0)
+        {
+            state.CurrentAd = null;
+            ShowNoAds(target, placeholder);
+            return;
+        }
+
+        var shouldSwitch = state.CurrentAd is null || !_ads.Contains(state.CurrentAd) || !state.CurrentAd.IsVisibleOn(panel);
+
+        if (!shouldSwitch)
+        {
+            state.ElapsedSeconds += _rotationIntervalSeconds;
+            if (state.ElapsedSeconds >= state.CurrentAd!.DurationSeconds)
+            {
+                shouldSwitch = true;
+            }
+        }
+
+        if (!shouldSwitch && state.CurrentAd is not null && usedInFrame.Contains(state.CurrentAd.FileName))
+        {
+            shouldSwitch = true;
+        }
+
+        if (shouldSwitch)
+        {
+            ShowNextAdForPanel(panel, state, target, placeholder, usedInFrame);
+            return;
+        }
+
+        if (state.CurrentAd is not null)
+        {
+            usedInFrame.Add(state.CurrentAd.FileName);
+        }
+    }
+
+    private void ShowNextAdForPanel(AdPanel panel, AdPlaybackState state, Image target, TextBlock placeholder, HashSet<string> usedInFrame)
+    {
+        var nextIndex = FindNextAdIndex(panel, state.LastIndex, usedInFrame);
+        if (nextIndex < 0)
+        {
+            state.CurrentAd = null;
+            state.LastIndex = -1;
+            state.ElapsedSeconds = 0;
+            ShowNoAds(target, placeholder);
+            return;
+        }
+
+        state.LastIndex = nextIndex;
+        state.CurrentAd = _ads[nextIndex];
+        state.ElapsedSeconds = 0;
+        usedInFrame.Add(state.CurrentAd.FileName);
+        ShowAd(target, placeholder, state.CurrentAd);
+    }
+
+    private int FindNextAdIndex(AdPanel panel, int afterIndex, HashSet<string> usedInFrame)
+    {
+        if (_ads.Count == 0)
+        {
+            return -1;
+        }
+
+        List<int> eligible = [];
+        for (var i = 0; i < _ads.Count; i++)
+        {
+            if (_ads[i].IsVisibleOn(panel) && !usedInFrame.Contains(_ads[i].FileName))
+            {
+                eligible.Add(i);
+            }
+        }
+
+        if (eligible.Count == 0)
+        {
+            return -1;
+        }
+
+        if (_adOrderMode == AdOrderMode.Random)
+        {
+            var idx = _random.Next(eligible.Count);
+            return eligible[idx];
+        }
+
+        for (var offset = 1; offset <= _ads.Count; offset++)
+        {
+            var candidate = (afterIndex + offset + _ads.Count) % _ads.Count;
+            if (eligible.Contains(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        return eligible[0];
+    }
+
+    private static void ShowNoAds(Image target, TextBlock placeholder)
+    {
+        target.Source = null;
+        target.Opacity = 0;
+        placeholder.Visibility = Visibility.Visible;
+    }
+
+    private void ShowAd(Image target, TextBlock placeholder, AdEntry ad)
+    {
+        var filePath = IOPath.Combine(_adStorageFolder, ad.FileName);
+        if (!File.Exists(filePath))
+        {
+            ShowNoAds(target, placeholder);
+            return;
+        }
+
+        var bitmap = new BitmapImage();
+        bitmap.BeginInit();
+        bitmap.CacheOption = BitmapCacheOption.OnLoad;
+        bitmap.UriSource = new Uri(filePath);
+        bitmap.EndInit();
+        bitmap.Freeze();
+
+        target.Source = bitmap;
+        placeholder.Visibility = Visibility.Collapsed;
+
+        var fade = new DoubleAnimation
+        {
+            From = 0,
+            To = 1,
+            Duration = TimeSpan.FromMilliseconds(700),
+            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+        };
+
+        target.BeginAnimation(OpacityProperty, fade);
+    }
+
+    private void AddAdButton_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Wybierz reklamę",
+            Filter = "Obrazy (*.png;*.jpg;*.jpeg;*.bmp)|*.png;*.jpg;*.jpeg;*.bmp"
+        };
+
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        try
+        {
+            EnsureAdStorage();
+            var extension = IOPath.GetExtension(dialog.FileName);
+            var savedName = $"{DateTime.Now:yyyyMMdd_HHmmssfff}{extension}";
+            var destinationPath = IOPath.Combine(_adStorageFolder, savedName);
+            File.Copy(dialog.FileName, destinationPath, overwrite: false);
+
+            _ads.Add(new AdEntry(savedName, IOPath.GetFileName(dialog.FileName), _defaultAdDurationSeconds, AdPanel.Top | AdPanel.Middle | AdPanel.Bottom));
+            SaveAdsManifest();
+            AdListBox.SelectedIndex = _ads.Count - 1;
+            LoadSelectedAdSettings();
+            RotateAds();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Nie udało się dodać reklamy: {ex.Message}", "Błąd", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void DeleteAdButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (AdListBox.SelectedItem is not AdEntry selected)
+        {
+            return;
+        }
+
+        var selectedIndex = AdListBox.SelectedIndex;
+        var filePath = IOPath.Combine(_adStorageFolder, selected.FileName);
+        _ads.Remove(selected);
+
+        if (File.Exists(filePath))
+        {
+            File.Delete(filePath);
+        }
+
+        SaveAdsManifest();
+
+        if (_ads.Count == 0)
+        {
+            RotateAds();
+            return;
+        }
+
+        AdListBox.SelectedIndex = Math.Min(selectedIndex, _ads.Count - 1);
+        LoadSelectedAdSettings();
+        RotateAds();
+    }
+
+    private void MoveAdUpButton_Click(object sender, RoutedEventArgs e)
+    {
+        var index = AdListBox.SelectedIndex;
+        if (index <= 0)
+        {
+            return;
+        }
+
+        _ads.Move(index, index - 1);
+        AdListBox.SelectedIndex = index - 1;
+        SaveAdsManifest();
+        RotateAds();
+    }
+
+    private void MoveAdDownButton_Click(object sender, RoutedEventArgs e)
+    {
+        var index = AdListBox.SelectedIndex;
+        if (index < 0 || index >= _ads.Count - 1)
+        {
+            return;
+        }
+
+        _ads.Move(index, index + 1);
+        AdListBox.SelectedIndex = index + 1;
+        SaveAdsManifest();
+        RotateAds();
+    }
+
+    private void AdListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        LoadSelectedAdSettings();
+    }
+
+    private void LoadSelectedAdSettings()
+    {
+        if (AdListBox.SelectedItem is not AdEntry selected)
+        {
+            return;
+        }
+
+        var durationBox = GetSelectedAdDurationTextBox();
+        var top = GetSelectedAdTopCheckBox();
+        var middle = GetSelectedAdMiddleCheckBox();
+        var bottom = GetSelectedAdBottomCheckBox();
+
+        if (durationBox is null || top is null || middle is null || bottom is null)
+        {
+            return;
+        }
+
+        durationBox.Text = selected.DurationSeconds.ToString(CultureInfo.InvariantCulture);
+        top.IsChecked = selected.IsVisibleOn(AdPanel.Top);
+        middle.IsChecked = selected.IsVisibleOn(AdPanel.Middle);
+        bottom.IsChecked = selected.IsVisibleOn(AdPanel.Bottom);
+    }
+
+    private void SaveSelectedAdSettingsButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (AdListBox.SelectedItem is not AdEntry selected)
+        {
+            MessageBox.Show("Najpierw wybierz grafikę z listy.", "Informacja", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var durationBox = GetSelectedAdDurationTextBox();
+        var top = GetSelectedAdTopCheckBox();
+        var middle = GetSelectedAdMiddleCheckBox();
+        var bottom = GetSelectedAdBottomCheckBox();
+
+        if (durationBox is null || top is null || middle is null || bottom is null)
+        {
+            return;
+        }
+
+        _ = ParseSeconds(durationBox.Text, selected.DurationSeconds, out var duration);
+        var panels = AdPanel.None;
+        if (top.IsChecked == true)
+        {
+            panels |= AdPanel.Top;
+        }
+
+        if (middle.IsChecked == true)
+        {
+            panels |= AdPanel.Middle;
+        }
+
+        if (bottom.IsChecked == true)
+        {
+            panels |= AdPanel.Bottom;
+        }
+
+        if (panels == AdPanel.None)
+        {
+            MessageBox.Show("Wybierz co najmniej jeden panel dla grafiki.", "Błąd", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        selected.DurationSeconds = duration;
+        selected.Panels = panels;
+
+        SaveAdsManifest();
+        RotateAds();
+    }
+
+    private void SaveGlobalAdSettingsButton_Click(object sender, RoutedEventArgs e)
+    {
+        var rotationBox = GetRotationIntervalTextBox();
+        var defaultDurationBox = GetDefaultAdDurationTextBox();
+
+        ParseSeconds(defaultDurationBox?.Text, _defaultAdDurationSeconds, out _defaultAdDurationSeconds);
+        ParseSeconds(rotationBox?.Text, _rotationIntervalSeconds, out _rotationIntervalSeconds);
+
+        var orderModeComboBox = GetOrderModeComboBox();
+        _adOrderMode = orderModeComboBox?.SelectedIndex == 1 ? AdOrderMode.Random : AdOrderMode.Sequential;
+
+        _rotationIntervalSeconds = Math.Clamp(_rotationIntervalSeconds, 1, 30);
+        _adTimer.Interval = TimeSpan.FromSeconds(_rotationIntervalSeconds);
+        if (rotationBox is not null)
+        {
+            rotationBox.Text = _rotationIntervalSeconds.ToString(CultureInfo.InvariantCulture);
+        }
+
+        if (defaultDurationBox is not null)
+        {
+            defaultDurationBox.Text = _defaultAdDurationSeconds.ToString(CultureInfo.InvariantCulture);
+        }
+
+        SaveAdsManifest();
+        RotateAds();
+    }
+
+    private Border? GetAdManagerPanel() => FindName("AdManagerPanel") as Border;
+    private StackPanel? GetAdManagerAuthPanel() => FindName("AdManagerAuthPanel") as StackPanel;
+    private StackPanel? GetAdManagerControls() => FindName("AdManagerControls") as StackPanel;
+    private PasswordBox? GetAdManagerPasswordBox() => FindName("AdManagerPasswordBox") as PasswordBox;
+    private TextBlock? GetAdManagerHintText() => FindName("AdManagerHintText") as TextBlock;
+
+    private TextBox? GetSelectedAdDurationTextBox() => FindName("SelectedAdDurationTextBox") as TextBox;
+    private CheckBox? GetSelectedAdTopCheckBox() => FindName("SelectedAdTopCheckBox") as CheckBox;
+    private CheckBox? GetSelectedAdMiddleCheckBox() => FindName("SelectedAdMiddleCheckBox") as CheckBox;
+    private CheckBox? GetSelectedAdBottomCheckBox() => FindName("SelectedAdBottomCheckBox") as CheckBox;
+    private TextBox? GetRotationIntervalTextBox() => FindName("RotationIntervalTextBox") as TextBox;
+    private TextBox? GetDefaultAdDurationTextBox() => FindName("DefaultAdDurationTextBox") as TextBox;
+    private ComboBox? GetOrderModeComboBox() => FindName("OrderModeComboBox") as ComboBox;
+
+    private void ResetAdManagerUi()
+    {
+        var panel = GetAdManagerPanel();
+        var authPanel = GetAdManagerAuthPanel();
+        var controls = GetAdManagerControls();
+        var passwordBox = GetAdManagerPasswordBox();
+        var hintText = GetAdManagerHintText();
+
+        if (panel is null || authPanel is null || controls is null || passwordBox is null || hintText is null)
+        {
+            return;
+        }
+
+        panel.Visibility = Visibility.Collapsed;
+        authPanel.Visibility = Visibility.Visible;
+        controls.Visibility = Visibility.Collapsed;
+        passwordBox.Password = string.Empty;
+        hintText.Text = string.Empty;
+    }
+
+    private void OpenAdManagerButton_Click(object sender, RoutedEventArgs e)
+    {
+        var panel = GetAdManagerPanel();
+        var authPanel = GetAdManagerAuthPanel();
+        var controls = GetAdManagerControls();
+        var passwordBox = GetAdManagerPasswordBox();
+        var hintText = GetAdManagerHintText();
+
+        if (panel is null || authPanel is null || controls is null || passwordBox is null || hintText is null)
+        {
+            return;
+        }
+
+        panel.Visibility = Visibility.Visible;
+        authPanel.Visibility = Visibility.Visible;
+        controls.Visibility = Visibility.Collapsed;
+        passwordBox.Password = string.Empty;
+        hintText.Text = string.Empty;
+        passwordBox.Focus();
+    }
+
+    private void UnlockAdManagerButton_Click(object sender, RoutedEventArgs e)
+    {
+        var authPanel = GetAdManagerAuthPanel();
+        var controls = GetAdManagerControls();
+        var passwordBox = GetAdManagerPasswordBox();
+        var hintText = GetAdManagerHintText();
+
+        if (authPanel is null || controls is null || passwordBox is null || hintText is null)
+        {
+            return;
+        }
+
+        if (passwordBox.Password != AdManagerPassword)
+        {
+            hintText.Text = "Błędne hasło";
+            return;
+        }
+
+        hintText.Text = string.Empty;
+        authPanel.Visibility = Visibility.Collapsed;
+        controls.Visibility = Visibility.Visible;
+    }
+
+    private void CloseAdManagerButton_Click(object sender, RoutedEventArgs e)
+    {
+        ResetAdManagerUi();
+    }
+
     private void StartButton_Click(object sender, RoutedEventArgs e)
     {
+        ResetAdManagerUi();
         ApplyTheme();
         StartMenuOverlay.Visibility = Visibility.Collapsed;
         StartNewGame();
@@ -594,4 +1181,39 @@ public partial class MainWindow : Window
 
     private record Tetromino(Point[] Cells, Brush Color, bool IsSquare);
     private record ScoreEntry(string Name, int Points);
+
+    private enum AdOrderMode
+    {
+        Sequential = 0,
+        Random = 1
+    }
+
+    [Flags]
+    private enum AdPanel
+    {
+        None = 0,
+        Top = 1,
+        Middle = 2,
+        Bottom = 4
+    }
+
+    private sealed class AdPlaybackState
+    {
+        public int LastIndex { get; set; } = -1;
+        public int ElapsedSeconds { get; set; }
+        public AdEntry? CurrentAd { get; set; }
+    }
+
+    private sealed class AdEntry(string fileName, string displayName, int durationSeconds, AdPanel panels)
+    {
+        public string FileName { get; } = fileName;
+        public string DisplayName { get; } = displayName;
+        public int DurationSeconds { get; set; } = durationSeconds;
+        public AdPanel Panels { get; set; } = panels;
+
+        public bool IsVisibleOn(AdPanel panel) => (Panels & panel) != 0;
+    }
+
+    private record AdManifestItem(string FileName, string DisplayName, int DurationSeconds, AdPanel Panels);
+    private record AdManifestRoot(int DefaultAdDurationSeconds, int RotationIntervalSeconds, AdOrderMode OrderMode, List<AdManifestItem> Ads);
 }
