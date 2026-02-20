@@ -184,6 +184,13 @@
                 </StackPanel>
             </Border>
 
+            <Border x:Name="HoldCard" CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="16" Margin="0,0,0,12">
+                <StackPanel>
+                    <TextBlock Text="HOLD (C)" Foreground="#94A3B8" FontSize="13" Margin="0,0,0,8" />
+                    <Canvas x:Name="HoldPieceCanvas" Width="130" Height="120" />
+                </StackPanel>
+            </Border>
+
             <Border x:Name="HighScoreCard" CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="14" Margin="0,0,0,12">
                 <StackPanel>
                     <TextBlock Text="TABELA WYNIKÓW" Foreground="#94A3B8" FontSize="14" Margin="0,0,0,8" FontWeight="SemiBold" />
@@ -198,7 +205,7 @@
 
             <Border x:Name="StatusCard" CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="14">
                 <TextBlock x:Name="StatusText"
-                           Text="Strzałki: ruch/obrót • Spacja: szybki zrzut • P: pauza • Esc"
+                           Text="Strzałki: ruch/obrót • Spacja: zrzut • C: hold • P: pauza • Esc"
                            Foreground="#A9B7CB"
                            TextWrapping="Wrap"
                            FontSize="14" />
@@ -224,12 +231,6 @@
                                Foreground="#94A3B8"
                                FontSize="16"
                                Margin="0,0,0,18" />
-                    <!-- To jest komentarz -->
-                    <!-- To jest komentarz -->
-                    <!-- To jest komentarz -->
-                    <!-- To jest komentarz -->
-                    <!-- To jest komentarz -->
-                    <!-- To jest komentarz -->
                     <TextBlock Text="Nick" Foreground="#CBD5E1" />
                     <TextBox x:Name="NickTextBox"
                              Text="Gracz"

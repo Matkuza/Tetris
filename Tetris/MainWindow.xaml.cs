@@ -40,6 +40,8 @@ public partial class MainWindow : Window
 
     private readonly string _adStorageFolder;
     private readonly string _adManifestPath;
+    private readonly string _settingsPath;
+    private readonly string _highScoresPath;
 
     private static readonly JsonSerializerOptions JsonWriteOptions = new() { WriteIndented = true };
     private const int MinAdSeconds = 2;
@@ -60,6 +62,8 @@ public partial class MainWindow : Window
     private bool _gameOver;
     private bool _isGameStarted;
     private bool _isPaused;
+    private bool _canHold;
+    private bool _isLoadingSettings = true;
     private int _startLevel;
     private double _cellSize = 36;
 
@@ -69,6 +73,8 @@ public partial class MainWindow : Window
 
     private double _effectsVolume = 0.8;
     private double _musicVolume = 0.6;
+
+    private Tetromino? _heldPiece;
 
     private Color _emptyCellColor = Color.FromRgb(12, 20, 38);
 
@@ -109,6 +115,8 @@ public partial class MainWindow : Window
 
         _adStorageFolder = ResolveAdStoragePath();
         _adManifestPath = IOPath.Combine(_adStorageFolder, "ads.json");
+        _settingsPath = IOPath.Combine(_adStorageFolder, "settings.json");
+        _highScoresPath = IOPath.Combine(_adStorageFolder, "highscores.json");
         _soundUris = CreateSoundUriMap();
         InitializeEffectPlayers();
         _backgroundMusicPlayer.MediaEnded += (_, _) =>
@@ -124,12 +132,15 @@ public partial class MainWindow : Window
         ConfigureAdStates();
         EnsureAdStorage();
         LoadAds();
+        LoadHighScores();
+        LoadSettings();
         ApplyLoadedGlobalSettingsToUi();
         ApplyTheme();
         UpdateBoardLayout();
         Draw();
         RotateAds();
         _adTimer.Start();
+        _isLoadingSettings = false;
     }
 
     private Dictionary<string, Uri> CreateSoundUriMap()
@@ -210,6 +221,11 @@ public partial class MainWindow : Window
         {
             player.Volume = ScaleVolume(_effectsVolume, MaxEffectsOutputVolume);
         }
+
+        if (!_isLoadingSettings)
+        {
+            SaveSettings();
+        }
     }
 
     private void MusicVolumeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -226,6 +242,11 @@ public partial class MainWindow : Window
         if (e.OldValue <= 0.001 && _isGameStarted && !_gameOver && StartMenuOverlay.Visibility != Visibility.Visible)
         {
             PlayBackgroundMusic();
+        }
+
+        if (!_isLoadingSettings)
+        {
+            SaveSettings();
         }
     }
 
@@ -263,7 +284,7 @@ public partial class MainWindow : Window
         var borderBrush = new SolidColorBrush(border);
         var titleBrush = new SolidColorBrush(titleColor);
 
-        foreach (var card in (Border[])[NickCard, ScoreCard, LevelCard, NextCard, HighScoreCard, StatusCard])
+        foreach (var card in (Border[])[NickCard, ScoreCard, LevelCard, NextCard, HoldCard, HighScoreCard, StatusCard])
         {
             card.Background = bgBrush;
             card.BorderBrush = borderBrush;
@@ -282,6 +303,8 @@ public partial class MainWindow : Window
         _gameOver = false;
         _isGameStarted = true;
         _isPaused = false;
+        _canHold = true;
+        _heldPiece = null;
         GameOverOverlay.Visibility = Visibility.Collapsed;
         PauseOverlay.Visibility = Visibility.Collapsed;
 
@@ -297,6 +320,7 @@ public partial class MainWindow : Window
 
         SetTimerSpeed();
         _nextPiece = CreateRandomPiece();
+        DrawHeldPiece();
         SpawnPiece();
         UpdateHud();
         Draw();
@@ -338,6 +362,7 @@ public partial class MainWindow : Window
     {
         _currentPiece = _nextPiece;
         _nextPiece = CreateRandomPiece();
+        _canHold = true;
         _currentX = BoardWidth / 2 - 2;
         _currentY = 0;
 
@@ -347,6 +372,7 @@ public partial class MainWindow : Window
         }
 
         DrawNextPiece();
+        DrawHeldPiece();
     }
 
     private void OnGameOver()
@@ -371,6 +397,7 @@ public partial class MainWindow : Window
         }
 
         RefreshHighScores();
+        SaveHighScores();
     }
 
     private void RefreshHighScores()
@@ -595,7 +622,7 @@ public partial class MainWindow : Window
         {
             StatusText.Text = _isPaused
                 ? "PAUZA • P: wznów • Esc"
-                : "Tryb szybki mocno zwiększa tempo • Strzałki/Spacja • P: pauza • Esc";
+                : "Strzałki: ruch/obrót • Spacja: zrzut • C: hold • P: pauza • Esc";
         }
     }
 
@@ -705,6 +732,74 @@ public partial class MainWindow : Window
         }
     }
 
+    private void DrawHeldPiece()
+    {
+        HoldPieceCanvas.Children.Clear();
+        if (_heldPiece is null)
+        {
+            return;
+        }
+
+        const double previewCell = 24;
+        foreach (var cell in _heldPiece.Cells)
+        {
+            var rect = new Rectangle
+            {
+                Width = previewCell,
+                Height = previewCell,
+                RadiusX = 5,
+                RadiusY = 5,
+                Fill = _heldPiece.Color,
+                Stroke = Brushes.Black,
+                StrokeThickness = 1
+            };
+
+            Canvas.SetLeft(rect, cell.X * previewCell + 18);
+            Canvas.SetTop(rect, cell.Y * previewCell + 16);
+            HoldPieceCanvas.Children.Add(rect);
+        }
+    }
+
+    private static Tetromino ClonePiece(Tetromino source)
+    {
+        return source with { Cells = source.Cells.Select(p => new Point(p.X, p.Y)).ToArray() };
+    }
+
+    private void HoldCurrentPiece()
+    {
+        if (!_canHold || !_isGameStarted || _gameOver)
+        {
+            return;
+        }
+
+        if (_heldPiece is null)
+        {
+            _heldPiece = ClonePiece(_currentPiece);
+            _currentPiece = _nextPiece;
+            _nextPiece = CreateRandomPiece();
+        }
+        else
+        {
+            var swap = ClonePiece(_heldPiece!);
+            _heldPiece = ClonePiece(_currentPiece);
+            _currentPiece = swap;
+        }
+
+        _canHold = false;
+        _currentX = BoardWidth / 2 - 2;
+        _currentY = 0;
+
+        if (!IsPositionValid(_currentX, _currentY, _currentPiece.Cells))
+        {
+            OnGameOver();
+            return;
+        }
+
+        DrawNextPiece();
+        DrawHeldPiece();
+        Draw();
+    }
+
     private void Window_KeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Escape)
@@ -765,6 +860,10 @@ public partial class MainWindow : Window
                 RotateCurrentPiece();
                 PlayEffect("rotate");
                 break;
+            case Key.C:
+                HoldCurrentPiece();
+                PlayEffect("rotate");
+                return;
             case Key.Space:
                 HardDrop();
                 return;
@@ -866,6 +965,82 @@ public partial class MainWindow : Window
 
         value = NormalizeSeconds(parsed, fallback);
         return parsed == value;
+    }
+
+    private void LoadHighScores()
+    {
+        _highScores.Clear();
+        if (!File.Exists(_highScoresPath))
+        {
+            RefreshHighScores();
+            return;
+        }
+
+        try
+        {
+            var json = File.ReadAllText(_highScoresPath);
+            var entries = JsonSerializer.Deserialize<List<ScoreEntry>>(json) ?? [];
+            _highScores.AddRange(entries.OrderByDescending(e => e.Points).Take(5));
+        }
+        catch
+        {
+            _highScores.Clear();
+        }
+
+        RefreshHighScores();
+    }
+
+    private void SaveHighScores()
+    {
+        var json = JsonSerializer.Serialize(_highScores, JsonWriteOptions);
+        File.WriteAllText(_highScoresPath, json);
+    }
+
+    private void LoadSettings()
+    {
+        if (!File.Exists(_settingsPath))
+        {
+            SaveSettings();
+            return;
+        }
+
+        try
+        {
+            var json = File.ReadAllText(_settingsPath);
+            var settings = JsonSerializer.Deserialize<GameSettings>(json);
+            if (settings is null)
+            {
+                return;
+            }
+
+            _isLoadingSettings = true;
+            NickTextBox.Text = string.IsNullOrWhiteSpace(settings.Nick) ? "Gracz" : settings.Nick;
+            StartLevelComboBox.SelectedIndex = Math.Clamp(settings.StartLevelIndex, 0, 2);
+            ThemeComboBox.SelectedIndex = Math.Clamp(settings.ThemeIndex, 0, 1);
+            MusicVolumeSlider.Value = Math.Clamp(settings.MusicVolume, 0, 1);
+            EffectsVolumeSlider.Value = Math.Clamp(settings.EffectsVolume, 0, 1);
+        }
+        catch
+        {
+            // ignore settings corruption and keep defaults
+        }
+        finally
+        {
+            _isLoadingSettings = false;
+        }
+    }
+
+    private void SaveSettings()
+    {
+        var settings = new GameSettings(
+            NickTextBox.Text.Trim(),
+            StartLevelComboBox.SelectedIndex,
+            ThemeComboBox.SelectedIndex,
+            MusicVolumeSlider.Value,
+            EffectsVolumeSlider.Value);
+
+        var json = JsonSerializer.Serialize(settings, JsonWriteOptions);
+        File.WriteAllText(_settingsPath, json);
     }
 
     private void EnsureAdStorage()
@@ -1364,6 +1539,7 @@ public partial class MainWindow : Window
         PlayEffect("buttonClick");
         ResetAdManagerUi();
         ApplyTheme();
+        SaveSettings();
         StartMenuOverlay.Visibility = Visibility.Collapsed;
         StartNewGame();
     }
@@ -1371,6 +1547,7 @@ public partial class MainWindow : Window
     private void ExitButton_Click(object sender, RoutedEventArgs e)
     {
         PlayEffect("buttonClick");
+        SaveSettings();
         Close();
     }
 
@@ -1382,6 +1559,7 @@ public partial class MainWindow : Window
 
     private record Tetromino(Point[] Cells, Brush Color, bool IsSquare);
     private record ScoreEntry(string Name, int Points);
+    private record GameSettings(string Nick, int StartLevelIndex, int ThemeIndex, double MusicVolume, double EffectsVolume);
 
     private enum AdOrderMode
     {
