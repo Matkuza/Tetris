@@ -479,6 +479,12 @@ public partial class MainWindow : Window
         _timer.Interval = TimeSpan.FromMilliseconds(speedMs);
     }
 
+    private int GetLockDelayTicks()
+    {
+        var intervalMs = Math.Max(1, _timer.Interval.TotalMilliseconds);
+        return Math.Max(2, (int)Math.Ceiling(220 / intervalMs));
+    }
+
     private void Tick()
     {
         if (_gameOver || !_isGameStarted || _isPaused)
@@ -493,7 +499,7 @@ public partial class MainWindow : Window
         else
         {
             _groundedTicks++;
-            if (_groundedTicks >= 2)
+            if (_groundedTicks >= GetLockDelayTicks())
             {
                 _groundedTicks = 0;
                 LockPiece();
@@ -515,6 +521,10 @@ public partial class MainWindow : Window
             {
                 _survivalTickCounter = 0;
                 AddGarbageRow();
+                if (_gameOver)
+                {
+                    return;
+                }
             }
         }
 
@@ -539,6 +549,11 @@ public partial class MainWindow : Window
 
     private void OnGameOver()
     {
+        if (_gameOver)
+        {
+            return;
+        }
+
         _gameOver = true;
         _timer.Stop();
         StopBackgroundMusic();
@@ -727,15 +742,6 @@ public partial class MainWindow : Window
     {
         var holeX = _random.Next(BoardWidth);
 
-        for (var x = 0; x < BoardWidth; x++)
-        {
-            if (_board[0, x] is not null)
-            {
-                OnGameOver();
-                return;
-            }
-        }
-
         for (var y = 0; y < BoardHeight - 1; y++)
         {
             for (var x = 0; x < BoardWidth; x++)
@@ -751,6 +757,12 @@ public partial class MainWindow : Window
 
         if (!IsPositionValid(_currentX, _currentY, _currentPiece.Cells))
         {
+            if (TryMove(_currentX, _currentY - 1, _currentPiece.Cells))
+            {
+                _groundedTicks = 0;
+                return;
+            }
+
             OnGameOver();
         }
     }
