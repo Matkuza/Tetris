@@ -41,6 +41,7 @@ public partial class MainWindow : Window
     private const int MaxAdSeconds = 120;
     private const double MaxMusicOutputVolume = 0.18;
     private const double MaxEffectsOutputVolume = 0.30;
+    private const int MaxLockResetsPerPiece = 8;
 
     private int _defaultAdDurationSeconds = 10;
     private int _rotationIntervalSeconds = 1;
@@ -60,6 +61,7 @@ public partial class MainWindow : Window
     private bool _isSurvivalMode;
     private int _survivalTickCounter;
     private int _groundedTicks;
+    private int _lockResetsUsed;
     private double _cellSize = 36;
     private bool _isFadeThemeActive;
     private bool _isHighscoreUnlocked;
@@ -448,6 +450,7 @@ public partial class MainWindow : Window
         _isPaused = false;
         _survivalTickCounter = 0;
         _groundedTicks = 0;
+        _lockResetsUsed = 0;
         GameOverOverlay.Visibility = Visibility.Collapsed;
         PauseOverlay.Visibility = Visibility.Collapsed;
 
@@ -495,6 +498,7 @@ public partial class MainWindow : Window
         if (TryMove(_currentX, _currentY + 1, _currentPiece.Cells))
         {
             _groundedTicks = 0;
+            _lockResetsUsed = 0;
         }
         else
         {
@@ -538,6 +542,7 @@ public partial class MainWindow : Window
         _currentX = BoardWidth / 2 - 2;
         _currentY = 0;
         _groundedTicks = 0;
+        _lockResetsUsed = 0;
 
         if (!IsPositionValid(_currentX, _currentY, _currentPiece.Cells))
         {
@@ -769,12 +774,23 @@ public partial class MainWindow : Window
 
     private void RefreshLockDelayAfterPlayerAction(bool actionApplied)
     {
-        if (!actionApplied)
+        if (!actionApplied || !IsCurrentPieceGrounded())
+        {
+            return;
+        }
+
+        if (_lockResetsUsed >= MaxLockResetsPerPiece)
         {
             return;
         }
 
         _groundedTicks = 0;
+        _lockResetsUsed++;
+    }
+
+    private bool IsCurrentPieceGrounded()
+    {
+        return !IsPositionValid(_currentX, _currentY + 1, _currentPiece.Cells);
     }
 
     private bool RotateCurrentPiece()
@@ -1127,6 +1143,7 @@ public partial class MainWindow : Window
                 if (moved)
                 {
                     _groundedTicks = 0;
+                    _lockResetsUsed = 0;
                 }
                 PlayEffect("rotate");
                 break;
