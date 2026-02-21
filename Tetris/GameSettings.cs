@@ -1,0 +1,17 @@
+namespace Tetris;
+
+internal record GameSettings(
+    string Nick,
+    int StartLevelIndex,
+    int GameModeIndex,
+    int ThemeIndex,
+    double MusicVolume,
+    double EffectsVolume,
+    int DasMs,
+    int ArrMs,
+    string MoveLeftKey,
+    string MoveRightKey,
+    string SoftDropKey,
+    string RotateKey,
+    string HardDropKey,
+    string HoldKey);

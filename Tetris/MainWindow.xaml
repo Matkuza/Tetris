@@ -9,6 +9,7 @@
         WindowStyle="None"
         Background="#050816"
         KeyDown="Window_KeyDown"
+        KeyUp="Window_KeyUp"
         SizeChanged="Window_SizeChanged">
     <Grid x:Name="RootGrid" Margin="14">
         <Grid.ColumnDefinitions>
@@ -191,6 +192,13 @@
                 <StackPanel>
                     <TextBlock Text="NASTĘPNY KLOCEK" Foreground="#94A3B8" FontSize="13" Margin="0,0,0,8" />
                     <Canvas x:Name="NextPieceCanvas" Width="130" Height="120" />
+                </StackPanel>
+            </Border>
+
+            <Border x:Name="HoldCard" CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="16" Margin="0,0,0,12">
+                <StackPanel>
+                    <TextBlock Text="HOLD" Foreground="#94A3B8" FontSize="13" Margin="0,0,0,8" />
+                    <Canvas x:Name="HoldPieceCanvas" Width="130" Height="120" />
                 </StackPanel>
             </Border>
 
@@ -468,6 +476,52 @@
                                                 IsSnapToTickEnabled="False"
                                                 ValueChanged="EffectsVolumeSlider_ValueChanged" />
                                     </StackPanel>
+                                </Border>
+
+                                <TextBlock Text="Sterowanie" Foreground="#D7E4F6" FontSize="28" FontWeight="Bold" Margin="0,0,0,10" />
+
+                                <Border CornerRadius="10" BorderBrush="#3C577C" BorderThickness="1" Background="#132647" Padding="12" Margin="0,0,0,12">
+                                    <StackPanel>
+                                        <TextBlock Text="DAS (ms)" Foreground="#E2E8F0" FontSize="17" Margin="0,0,0,4" />
+                                        <TextBox x:Name="DasTextBox" Text="140" Padding="8" Background="#0A162C" Foreground="#F8FAFC" BorderBrush="#3C577C" />
+                                        <TextBlock Text="ARR (ms)" Foreground="#E2E8F0" FontSize="17" Margin="0,8,0,4" />
+                                        <TextBox x:Name="ArrTextBox" Text="45" Padding="8" Background="#0A162C" Foreground="#F8FAFC" BorderBrush="#3C577C" />
+                                    </StackPanel>
+                                </Border>
+
+                                <Border CornerRadius="10" BorderBrush="#3C577C" BorderThickness="1" Background="#132647" Padding="12" Margin="0,0,0,16">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="180" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+
+                                        <TextBlock Grid.Row="0" Text="Ruch w lewo" Foreground="#E2E8F0" FontSize="16" Margin="0,0,0,6" />
+                                        <TextBox x:Name="MoveLeftKeyTextBox" Grid.Row="0" Grid.Column="1" Text="Left" Margin="8,0,0,6" Padding="6" Background="#0A162C" Foreground="#F8FAFC" BorderBrush="#3C577C" />
+
+                                        <TextBlock Grid.Row="1" Text="Ruch w prawo" Foreground="#E2E8F0" FontSize="16" Margin="0,0,0,6" />
+                                        <TextBox x:Name="MoveRightKeyTextBox" Grid.Row="1" Grid.Column="1" Text="Right" Margin="8,0,0,6" Padding="6" Background="#0A162C" Foreground="#F8FAFC" BorderBrush="#3C577C" />
+
+                                        <TextBlock Grid.Row="2" Text="Soft drop" Foreground="#E2E8F0" FontSize="16" Margin="0,0,0,6" />
+                                        <TextBox x:Name="SoftDropKeyTextBox" Grid.Row="2" Grid.Column="1" Text="Down" Margin="8,0,0,6" Padding="6" Background="#0A162C" Foreground="#F8FAFC" BorderBrush="#3C577C" />
+
+                                        <TextBlock Grid.Row="3" Text="Obrót" Foreground="#E2E8F0" FontSize="16" Margin="0,0,0,6" />
+                                        <TextBox x:Name="RotateKeyTextBox" Grid.Row="3" Grid.Column="1" Text="Up" Margin="8,0,0,6" Padding="6" Background="#0A162C" Foreground="#F8FAFC" BorderBrush="#3C577C" />
+
+                                        <TextBlock Grid.Row="4" Text="Hard drop" Foreground="#E2E8F0" FontSize="16" Margin="0,0,0,6" />
+                                        <TextBox x:Name="HardDropKeyTextBox" Grid.Row="4" Grid.Column="1" Text="Space" Margin="8,0,0,6" Padding="6" Background="#0A162C" Foreground="#F8FAFC" BorderBrush="#3C577C" />
+
+                                        <TextBlock Grid.Row="5" Text="Hold" Foreground="#E2E8F0" FontSize="16" />
+                                        <TextBox x:Name="HoldKeyTextBox" Grid.Row="5" Grid.Column="1" Text="C" Margin="8,0,0,0" Padding="6" Background="#0A162C" Foreground="#F8FAFC" BorderBrush="#3C577C" />
+                                    </Grid>
                                 </Border>
 
                                 <Button Content="Opcje reklam (hasło)"

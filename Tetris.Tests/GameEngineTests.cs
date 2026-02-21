@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Media;
+using System.Text.Json;
 
 namespace Tetris.Tests;
 
@@ -85,5 +86,58 @@ public class GameEngineTests
         };
 
         return new Tetromino(cells, Brushes.Cyan, false);
+    }
+
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(1, 120)]
+    [InlineData(2, 360)]
+    [InlineData(3, 700)]
+    [InlineData(4, 1100)]
+    public void CalculateScoreForClearedLines_ReturnsExpectedValue(int clearedLines, int expected)
+    {
+        var score = GameEngine.CalculateScoreForClearedLines(clearedLines);
+
+        Assert.Equal(expected, score);
+    }
+
+    [Fact]
+    public void IsGameOverOnSpawn_ReturnsTrueWhenSpawnBlocked()
+    {
+        var engine = new GameEngine(10, 20);
+        var piece = CreateIPiece();
+        engine.Board[1, 4] = Brushes.Red;
+
+        var blocked = engine.IsGameOverOnSpawn(3, 0, piece.Cells);
+
+        Assert.True(blocked);
+    }
+
+    [Fact]
+    public void GameSettings_SerializesAndDeserializesControlBindings()
+    {
+        var settings = new GameSettings(
+            "Tester",
+            1,
+            2,
+            0,
+            0.5,
+            0.4,
+            150,
+            35,
+            "A",
+            "D",
+            "S",
+            "W",
+            "Space",
+            "LeftShift");
+
+        var json = JsonSerializer.Serialize(settings);
+        var roundtrip = JsonSerializer.Deserialize<GameSettings>(json);
+
+        Assert.NotNull(roundtrip);
+        Assert.Equal("A", roundtrip!.MoveLeftKey);
+        Assert.Equal(150, roundtrip.DasMs);
+        Assert.Equal(35, roundtrip.ArrMs);
     }
 }

@@ -60,6 +60,7 @@ public partial class MainWindow : Window
     private GameMode _selectedHighscoreMode = GameMode.Classic;
     private int _survivalTickCounter;
     private readonly Stopwatch _ultraStopwatch = new();
+    private readonly Stopwatch _inputStopwatch = Stopwatch.StartNew();
     private double _cellSize = 36;
     private bool _isFadeThemeActive;
     private bool _isHighscoreUnlocked;
@@ -70,6 +71,20 @@ public partial class MainWindow : Window
 
     private double _effectsVolume = 0.8;
     private double _musicVolume = 0.6;
+    private Tetromino? _holdPiece;
+    private bool _holdUsedThisTurn;
+    private int _dasMs = 140;
+    private int _arrMs = 45;
+    private Key _moveLeftKey = Key.Left;
+    private Key _moveRightKey = Key.Right;
+    private Key _softDropKey = Key.Down;
+    private Key _rotateKey = Key.Up;
+    private Key _hardDropKey = Key.Space;
+    private Key _holdKey = Key.C;
+    private int _horizontalDirection;
+    private long _horizontalPressedAtMs;
+    private long _lastHorizontalRepeatMs;
+    private bool _softDropPressed;
 
 
     private Color _emptyCellColor = Color.FromRgb(12, 20, 38);
@@ -153,6 +168,7 @@ public partial class MainWindow : Window
             {
                 Draw();
                 DrawNextPiece();
+                DrawHoldPiece();
             }
         };
 
@@ -178,6 +194,7 @@ public partial class MainWindow : Window
         LoadHighScores();
         LoadSettings();
         ApplyLoadedGlobalSettingsToUi();
+        ApplyControlSettingsToUi();
         ApplyTheme();
         UpdateBoardLayout();
         Draw();
@@ -408,7 +425,8 @@ public partial class MainWindow : Window
         ApplyGlowToBorder(ScoreCard, 6, 16, 0.65);
         ApplyGlowToBorder(LevelCard, 7, 16, 0.65);
         ApplyGlowToBorder(NextCard, 8, 16, 0.65);
-        ApplyGlowToBorder(StatusCard, 9, 16, 0.65);
+        ApplyGlowToBorder(HoldCard, 9, 16, 0.65);
+        ApplyGlowToBorder(StatusCard, 10, 16, 0.65);
     }
 
     private void ApplyGlowToBorder(Border target, int phase, double blurRadius, double opacity)
@@ -447,7 +465,7 @@ public partial class MainWindow : Window
 
     private void ClearFadeAccentEffects()
     {
-        foreach (var border in (Border[])[BoardBorder, AdBorder, AdSlotTopBorder, AdSlotMiddleBorder, AdSlotBottomBorder, NickCard, ScoreCard, LevelCard, TimerCard, NextCard, StatusCard])
+        foreach (var border in (Border[])[BoardBorder, AdBorder, AdSlotTopBorder, AdSlotMiddleBorder, AdSlotBottomBorder, NickCard, ScoreCard, LevelCard, TimerCard, NextCard, HoldCard, StatusCard])
         {
             border.Effect = null;
         }
@@ -458,7 +476,7 @@ public partial class MainWindow : Window
         var borderBrush = new SolidColorBrush(border);
         var titleBrush = new SolidColorBrush(titleColor);
 
-        foreach (var card in (Border[])[NickCard, ScoreCard, LevelCard, TimerCard, NextCard, StatusCard])
+        foreach (var card in (Border[])[NickCard, ScoreCard, LevelCard, TimerCard, NextCard, HoldCard, StatusCard])
         {
             card.Background = bgBrush;
             card.BorderBrush = borderBrush;
@@ -480,6 +498,10 @@ public partial class MainWindow : Window
         _survivalTickCounter = 0;
         _groundedTicks = 0;
         _lockResetsUsed = 0;
+        _holdPiece = null;
+        _holdUsedThisTurn = false;
+        _horizontalDirection = 0;
+        _softDropPressed = false;
         GameOverOverlay.Visibility = Visibility.Collapsed;
         PauseOverlay.Visibility = Visibility.Collapsed;
 
@@ -530,6 +552,9 @@ public partial class MainWindow : Window
         {
             return;
         }
+
+        HandleHorizontalRepeat();
+        HandleSoftDropRepeat();
 
         if (TryMove(_currentX, _currentY + 1, _currentPiece.Cells))
         {
@@ -582,21 +607,64 @@ public partial class MainWindow : Window
         Draw();
     }
 
+    private void HandleHorizontalRepeat()
+    {
+        if (_horizontalDirection == 0)
+        {
+            return;
+        }
+
+        var nowMs = _inputStopwatch.ElapsedMilliseconds;
+        if (nowMs - _horizontalPressedAtMs < _dasMs)
+        {
+            return;
+        }
+
+        if (_arrMs > 0 && nowMs - _lastHorizontalRepeatMs < _arrMs)
+        {
+            return;
+        }
+
+        var moved = TryMove(_currentX + _horizontalDirection, _currentY, _currentPiece.Cells);
+        if (moved)
+        {
+            RefreshLockDelayAfterPlayerAction(true);
+        }
+
+        _lastHorizontalRepeatMs = nowMs;
+    }
+
+    private void HandleSoftDropRepeat()
+    {
+        if (!_softDropPressed)
+        {
+            return;
+        }
+
+        if (TryMove(_currentX, _currentY + 1, _currentPiece.Cells))
+        {
+            _groundedTicks = 0;
+            _lockResetsUsed = 0;
+        }
+    }
+
     private void SpawnPiece()
     {
         _currentPiece = _nextPiece;
         _nextPiece = CreateRandomPiece();
+        _holdUsedThisTurn = false;
         _currentX = BoardWidth / 2 - 2;
         _currentY = 0;
         _groundedTicks = 0;
         _lockResetsUsed = 0;
 
-        if (!IsPositionValid(_currentX, _currentY, _currentPiece.Cells))
+        if (_engine.IsGameOverOnSpawn(_currentX, _currentY, _currentPiece.Cells))
         {
             OnGameOver();
         }
 
         DrawNextPiece();
+        DrawHoldPiece();
     }
 
     private void OnGameOver()
@@ -865,14 +933,7 @@ public partial class MainWindow : Window
         }
 
         _linesCleared += removedRows.Count;
-        _score += removedRows.Count switch
-        {
-            1 => 120,
-            2 => 360,
-            3 => 700,
-            4 => 1100,
-            _ => removedRows.Count * 250
-        };
+        _score += GameEngine.CalculateScoreForClearedLines(removedRows.Count);
 
         SetTimerSpeed();
         UpdateHud();
@@ -959,7 +1020,7 @@ public partial class MainWindow : Window
             };
             StatusText.Text = _isPaused
                 ? "PAUZA • P: wznów • Esc"
-                : $"{modeText} • Strzałki: ruch/obrót • Spacja: zrzut • P: pauza • Esc";
+                : $"{modeText} • {_moveLeftKey}/{_moveRightKey}: ruch • {_rotateKey}: obrót • {_hardDropKey}: zrzut • {_holdKey}: hold • P: pauza • Esc";
         }
     }
 
@@ -1070,6 +1131,77 @@ public partial class MainWindow : Window
             NextPieceCanvas.Children.Add(rect);
         }
     }
+
+    private void DrawHoldPiece()
+    {
+        HoldPieceCanvas.Children.Clear();
+
+        if (_holdPiece is null)
+        {
+            return;
+        }
+
+        const double previewCell = 24;
+        foreach (var cell in _holdPiece.Cells)
+        {
+            var rect = new Rectangle
+            {
+                Width = previewCell,
+                Height = previewCell,
+                RadiusX = 5,
+                RadiusY = 5,
+                Fill = _holdPiece.Color,
+                Stroke = Brushes.Black,
+                StrokeThickness = 1
+            };
+
+            Canvas.SetLeft(rect, cell.X * previewCell + 18);
+            Canvas.SetTop(rect, cell.Y * previewCell + 16);
+            HoldPieceCanvas.Children.Add(rect);
+        }
+    }
+
+    private void HoldCurrentPiece()
+    {
+        if (_holdUsedThisTurn)
+        {
+            return;
+        }
+
+        var previousHold = _holdPiece;
+        _holdPiece = ClonePiece(_currentPiece);
+        _holdUsedThisTurn = true;
+
+        if (previousHold is null)
+        {
+            _currentPiece = _nextPiece;
+            _nextPiece = CreateRandomPiece();
+        }
+        else
+        {
+            _currentPiece = ClonePiece(previousHold);
+        }
+
+        _currentX = BoardWidth / 2 - 2;
+        _currentY = 0;
+        _groundedTicks = 0;
+        _lockResetsUsed = 0;
+
+        if (!IsPositionValid(_currentX, _currentY, _currentPiece.Cells))
+        {
+            OnGameOver();
+            return;
+        }
+
+        DrawNextPiece();
+        DrawHoldPiece();
+    }
+
+    private static Tetromino ClonePiece(Tetromino piece)
+    {
+        var clonedCells = piece.Cells.Select(cell => new Point(cell.X, cell.Y)).ToArray();
+        return new Tetromino(clonedCells, piece.Color, piece.IsSquare);
+    }
     private void Window_KeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Escape)
@@ -1113,46 +1245,81 @@ public partial class MainWindow : Window
             return;
         }
 
-        switch (e.Key)
+        if (e.Key == _moveLeftKey || e.Key == _moveRightKey)
         {
-            case Key.Left:
+            var direction = e.Key == _moveLeftKey ? -1 : 1;
+            _horizontalDirection = direction;
+            _horizontalPressedAtMs = _inputStopwatch.ElapsedMilliseconds;
+            _lastHorizontalRepeatMs = _horizontalPressedAtMs;
+
+            if (!e.IsRepeat)
             {
-                var moved = TryMove(_currentX - 1, _currentY, _currentPiece.Cells);
+                var moved = TryMove(_currentX + direction, _currentY, _currentPiece.Cells);
                 RefreshLockDelayAfterPlayerAction(moved);
                 PlayEffect("rotate");
-                break;
             }
-            case Key.Right:
-            {
-                var moved = TryMove(_currentX + 1, _currentY, _currentPiece.Cells);
-                RefreshLockDelayAfterPlayerAction(moved);
-                PlayEffect("rotate");
-                break;
-            }
-            case Key.Down:
-            {
-                var moved = TryMove(_currentX, _currentY + 1, _currentPiece.Cells);
-                if (moved)
-                {
-                    _groundedTicks = 0;
-                    _lockResetsUsed = 0;
-                }
-                PlayEffect("rotate");
-                break;
-            }
-            case Key.Up:
-            {
-                var rotated = RotateCurrentPiece();
-                RefreshLockDelayAfterPlayerAction(rotated);
-                PlayEffect("rotate");
-                break;
-            }
-            case Key.Space:
-                HardDrop();
-                return;
+
+            Draw();
+            return;
         }
 
-        Draw();
+        if (e.Key == _softDropKey)
+        {
+            _softDropPressed = true;
+            var moved = TryMove(_currentX, _currentY + 1, _currentPiece.Cells);
+            if (moved)
+            {
+                _groundedTicks = 0;
+                _lockResetsUsed = 0;
+                Draw();
+            }
+
+            return;
+        }
+
+        if (e.Key == _rotateKey)
+        {
+            var rotated = RotateCurrentPiece();
+            RefreshLockDelayAfterPlayerAction(rotated);
+            PlayEffect("rotate");
+            Draw();
+            return;
+        }
+
+        if (e.Key == _hardDropKey)
+        {
+            HardDrop();
+            return;
+        }
+
+        if (e.Key == _holdKey)
+        {
+            HoldCurrentPiece();
+            Draw();
+            return;
+        }
+
+    }
+
+    private void Window_KeyUp(object sender, KeyEventArgs e)
+    {
+        if (e.Key == _moveLeftKey && _horizontalDirection < 0)
+        {
+            _horizontalDirection = Keyboard.IsKeyDown(_moveRightKey) ? 1 : 0;
+            _horizontalPressedAtMs = _inputStopwatch.ElapsedMilliseconds;
+            _lastHorizontalRepeatMs = _horizontalPressedAtMs;
+        }
+        else if (e.Key == _moveRightKey && _horizontalDirection > 0)
+        {
+            _horizontalDirection = Keyboard.IsKeyDown(_moveLeftKey) ? -1 : 0;
+            _horizontalPressedAtMs = _inputStopwatch.ElapsedMilliseconds;
+            _lastHorizontalRepeatMs = _horizontalPressedAtMs;
+        }
+
+        if (e.Key == _softDropKey)
+        {
+            _softDropPressed = false;
+        }
     }
 
     private void TogglePause()
@@ -1260,6 +1427,35 @@ public partial class MainWindow : Window
         return parsed == value;
     }
 
+    private static int ParseNonNegativeInt(string? text, int fallback)
+    {
+        return int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed) && parsed >= 0
+            ? parsed
+            : fallback;
+    }
+
+    private static Key ParseKey(string? keyText, Key fallback)
+    {
+        if (!string.IsNullOrWhiteSpace(keyText) && Enum.TryParse<Key>(keyText, true, out var parsed))
+        {
+            return parsed;
+        }
+
+        return fallback;
+    }
+
+    private void ApplyControlSettingsToUi()
+    {
+        DasTextBox.Text = _dasMs.ToString(CultureInfo.InvariantCulture);
+        ArrTextBox.Text = _arrMs.ToString(CultureInfo.InvariantCulture);
+        MoveLeftKeyTextBox.Text = _moveLeftKey.ToString();
+        MoveRightKeyTextBox.Text = _moveRightKey.ToString();
+        SoftDropKeyTextBox.Text = _softDropKey.ToString();
+        RotateKeyTextBox.Text = _rotateKey.ToString();
+        HardDropKeyTextBox.Text = _hardDropKey.ToString();
+        HoldKeyTextBox.Text = _holdKey.ToString();
+    }
+
     private void LoadHighScores()
     {
         _highScoresByMode.Clear();
@@ -1352,6 +1548,15 @@ public partial class MainWindow : Window
             ThemeComboBox.SelectedIndex = Math.Clamp(settings.ThemeIndex, 0, 2);
             MusicVolumeSlider.Value = Math.Clamp(settings.MusicVolume, 0, 1);
             EffectsVolumeSlider.Value = Math.Clamp(settings.EffectsVolume, 0, 1);
+            _dasMs = Math.Clamp(settings.DasMs, 0, 500);
+            _arrMs = Math.Clamp(settings.ArrMs, 0, 300);
+            _moveLeftKey = ParseKey(settings.MoveLeftKey, Key.Left);
+            _moveRightKey = ParseKey(settings.MoveRightKey, Key.Right);
+            _softDropKey = ParseKey(settings.SoftDropKey, Key.Down);
+            _rotateKey = ParseKey(settings.RotateKey, Key.Up);
+            _hardDropKey = ParseKey(settings.HardDropKey, Key.Space);
+            _holdKey = ParseKey(settings.HoldKey, Key.C);
+            ApplyControlSettingsToUi();
         }
         catch
         {
@@ -1365,13 +1570,31 @@ public partial class MainWindow : Window
 
     private void SaveSettings()
     {
+        _dasMs = Math.Clamp(ParseNonNegativeInt(DasTextBox.Text, _dasMs), 0, 500);
+        _arrMs = Math.Clamp(ParseNonNegativeInt(ArrTextBox.Text, _arrMs), 0, 300);
+        _moveLeftKey = ParseKey(MoveLeftKeyTextBox.Text, _moveLeftKey);
+        _moveRightKey = ParseKey(MoveRightKeyTextBox.Text, _moveRightKey);
+        _softDropKey = ParseKey(SoftDropKeyTextBox.Text, _softDropKey);
+        _rotateKey = ParseKey(RotateKeyTextBox.Text, _rotateKey);
+        _hardDropKey = ParseKey(HardDropKeyTextBox.Text, _hardDropKey);
+        _holdKey = ParseKey(HoldKeyTextBox.Text, _holdKey);
+        ApplyControlSettingsToUi();
+
         var settings = new GameSettings(
             NickTextBox.Text.Trim(),
             StartLevelComboBox.SelectedIndex,
             GameModeComboBox.SelectedIndex,
             ThemeComboBox.SelectedIndex,
             MusicVolumeSlider.Value,
-            EffectsVolumeSlider.Value);
+            EffectsVolumeSlider.Value,
+            _dasMs,
+            _arrMs,
+            _moveLeftKey.ToString(),
+            _moveRightKey.ToString(),
+            _softDropKey.ToString(),
+            _rotateKey.ToString(),
+            _hardDropKey.ToString(),
+            _holdKey.ToString());
 
         var json = JsonSerializer.Serialize(settings, JsonWriteOptions);
         File.WriteAllText(_settingsPath, json);
@@ -2068,7 +2291,6 @@ public partial class MainWindow : Window
 
     private record ScoreEntry(string Name, int Points);
     private record HighscoreStore(Dictionary<string, List<ScoreEntry>> Modes);
-    private record GameSettings(string Nick, int StartLevelIndex, int GameModeIndex, int ThemeIndex, double MusicVolume, double EffectsVolume);
 
     private enum GameMode
     {

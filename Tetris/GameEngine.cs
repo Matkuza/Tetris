@@ -187,6 +187,24 @@ internal sealed class GameEngine(int boardWidth, int boardHeight, Random? random
         return removedRows;
     }
 
+    public static int CalculateScoreForClearedLines(int clearedLines)
+    {
+        return clearedLines switch
+        {
+            1 => 120,
+            2 => 360,
+            3 => 700,
+            4 => 1100,
+            > 0 => clearedLines * 250,
+            _ => 0
+        };
+    }
+
+    public bool IsGameOverOnSpawn(int spawnX, int spawnY, Point[] pieceCells)
+    {
+        return !IsPositionValid(spawnX, spawnY, pieceCells);
+    }
+
     private void RefillBag(int pieceCount)
     {
         var nextBag = Enumerable.Range(0, pieceCount).ToArray();
