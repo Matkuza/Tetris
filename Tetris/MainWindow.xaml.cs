@@ -647,6 +647,11 @@ public partial class MainWindow : Window
 
     private void RefreshHighScores()
     {
+        if (StartHighScoresListBox is null)
+        {
+            return;
+        }
+
         StartHighScoresListBox.Items.Clear();
 
         var modeScores = GetHighScoresForMode(_selectedHighscoreMode);
