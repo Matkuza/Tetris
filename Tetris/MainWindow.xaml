@@ -351,6 +351,62 @@
                                 <Setter Property="Foreground" Value="#F8FAFC" />
                                 <Setter Property="BorderBrush" Value="#3C577C" />
                                 <Setter Property="Padding" Value="8" />
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ComboBox">
+                                            <Grid>
+                                                <Border x:Name="ComboBorder"
+                                                        Background="{TemplateBinding Background}"
+                                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                                        BorderThickness="1"
+                                                        CornerRadius="8">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="34" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <ContentPresenter Grid.Column="0"
+                                                                          Margin="10,2,6,2"
+                                                                          VerticalAlignment="Center"
+                                                                          HorizontalAlignment="Left"
+                                                                          Content="{TemplateBinding SelectionBoxItem}"
+                                                                          ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                                                          ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"
+                                                                          TextElement.Foreground="{TemplateBinding Foreground}" />
+                                                        <TextBlock Grid.Column="1"
+                                                                   Text="▼"
+                                                                   Foreground="#BFDBFE"
+                                                                   HorizontalAlignment="Center"
+                                                                   VerticalAlignment="Center"
+                                                                   FontSize="12" />
+                                                    </Grid>
+                                                </Border>
+                                                <Popup x:Name="PART_Popup"
+                                                       Placement="Bottom"
+                                                       IsOpen="{TemplateBinding IsDropDownOpen}"
+                                                       AllowsTransparency="True"
+                                                       Focusable="False"
+                                                       PopupAnimation="Slide">
+                                                    <Border Background="#132647"
+                                                            BorderBrush="#3C577C"
+                                                            BorderThickness="1"
+                                                            CornerRadius="8"
+                                                            Margin="0,4,0,0"
+                                                            MinWidth="{TemplateBinding ActualWidth}">
+                                                        <ScrollViewer MaxHeight="260">
+                                                            <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained" />
+                                                        </ScrollViewer>
+                                                    </Border>
+                                                </Popup>
+                                            </Grid>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                                    <Setter TargetName="ComboBorder" Property="BorderBrush" Value="#60A5FA" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
                                 <Setter Property="ItemContainerStyle">
                                     <Setter.Value>
                                         <Style TargetType="ComboBoxItem">
@@ -370,11 +426,6 @@
                                         </Style>
                                     </Setter.Value>
                                 </Setter>
-                                <Style.Triggers>
-                                    <Trigger Property="IsKeyboardFocusWithin" Value="True">
-                                        <Setter Property="BorderBrush" Value="#60A5FA" />
-                                    </Trigger>
-                                </Style.Triggers>
                             </Style>
                             <Style TargetType="ComboBoxItem">
                                 <Setter Property="Background" Value="#132647" />
