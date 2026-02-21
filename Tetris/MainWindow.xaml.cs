@@ -22,7 +22,7 @@ public partial class MainWindow : Window
     private const int BoardHeight = 20;
     private const string AdManagerPassword = "12345";
 
-    private readonly Brush?[,] _board = new Brush?[BoardHeight, BoardWidth];
+    private readonly GameEngine _engine = new(BoardWidth, BoardHeight);
     private readonly Random _random = new();
     private readonly DispatcherTimer _timer;
     private readonly List<ScoreEntry> _highScores = [];
@@ -47,10 +47,7 @@ public partial class MainWindow : Window
     private int _rotationIntervalSeconds = 1;
     private AdOrderMode _adOrderMode = AdOrderMode.Sequential;
 
-    private Tetromino _currentPiece = null!;
     private Tetromino _nextPiece = null!;
-    private int _currentX;
-    private int _currentY;
     private int _score;
     private int _linesCleared;
     private bool _gameOver;
@@ -60,8 +57,6 @@ public partial class MainWindow : Window
     private int _startLevel;
     private bool _isSurvivalMode;
     private int _survivalTickCounter;
-    private int _groundedTicks;
-    private int _lockResetsUsed;
     private double _cellSize = 36;
     private bool _isFadeThemeActive;
     private bool _isHighscoreUnlocked;
@@ -98,6 +93,37 @@ public partial class MainWindow : Window
     ];
 
     private Brush[] _activePaletteBrushes = [];
+
+    private Brush?[,] _board => _engine.Board;
+    private Tetromino _currentPiece
+    {
+        get => _engine.CurrentPiece;
+        set => _engine.CurrentPiece = value;
+    }
+
+    private int _currentX
+    {
+        get => _engine.CurrentX;
+        set => _engine.CurrentX = value;
+    }
+
+    private int _currentY
+    {
+        get => _engine.CurrentY;
+        set => _engine.CurrentY = value;
+    }
+
+    private int _groundedTicks
+    {
+        get => _engine.GroundedTicks;
+        set => _engine.GroundedTicks = value;
+    }
+
+    private int _lockResetsUsed
+    {
+        get => _engine.LockResetsUsed;
+        set => _engine.LockResetsUsed = value;
+    }
 
     private static readonly Point[][] PieceDefinitions =
     [
@@ -442,7 +468,7 @@ public partial class MainWindow : Window
 
     private void StartNewGame()
     {
-        Array.Clear(_board);
+        _engine.ResetBoard();
         _score = 0;
         _linesCleared = 0;
         _gameOver = false;
@@ -712,64 +738,22 @@ public partial class MainWindow : Window
 
     private bool TryMove(int newX, int newY, Point[] cells)
     {
-        if (!IsPositionValid(newX, newY, cells))
-        {
-            return false;
-        }
-
-        _currentX = newX;
-        _currentY = newY;
-        return true;
+        return _engine.TryMove(newX, newY, cells);
     }
 
     private bool IsPositionValid(int x, int y, Point[] cells)
     {
-        foreach (var cell in cells)
-        {
-            var boardX = x + (int)cell.X;
-            var boardY = y + (int)cell.Y;
-
-            if (boardX < 0 || boardX >= BoardWidth || boardY < 0 || boardY >= BoardHeight)
-            {
-                return false;
-            }
-
-            if (_board[boardY, boardX] is not null)
-            {
-                return false;
-            }
-        }
-
-        return true;
+        return _engine.IsPositionValid(x, y, cells);
     }
 
     private void AddGarbageRow()
     {
-        var holeX = _random.Next(BoardWidth);
-
-        for (var y = 0; y < BoardHeight - 1; y++)
+        if (_engine.AddGarbageRow(_random.Next(BoardWidth)))
         {
-            for (var x = 0; x < BoardWidth; x++)
-            {
-                _board[y, x] = _board[y + 1, x];
-            }
+            return;
         }
 
-        for (var x = 0; x < BoardWidth; x++)
-        {
-            _board[BoardHeight - 1, x] = x == holeX ? null : Brushes.DimGray;
-        }
-
-        if (!IsPositionValid(_currentX, _currentY, _currentPiece.Cells))
-        {
-            if (TryMove(_currentX, _currentY - 1, _currentPiece.Cells))
-            {
-                _groundedTicks = 0;
-                return;
-            }
-
-            OnGameOver();
-        }
+        OnGameOver();
     }
 
     private void RefreshLockDelayAfterPlayerAction(bool actionApplied)
@@ -790,31 +774,12 @@ public partial class MainWindow : Window
 
     private bool IsCurrentPieceGrounded()
     {
-        return !IsPositionValid(_currentX, _currentY + 1, _currentPiece.Cells);
+        return _engine.IsCurrentPieceGrounded();
     }
 
     private bool RotateCurrentPiece()
     {
-        if (_currentPiece.IsSquare)
-        {
-            return false;
-        }
-
-        var rotated = _currentPiece.Cells.Select(p => new Point(2 - p.Y, p.X)).ToArray();
-        int[] offsets = [0, -1, 1, -2, 2];
-        foreach (var offset in offsets)
-        {
-            if (!IsPositionValid(_currentX + offset, _currentY, rotated))
-            {
-                continue;
-            }
-
-            _currentX += offset;
-            _currentPiece = _currentPiece with { Cells = rotated };
-            return true;
-        }
-
-        return false;
+        return _engine.RotateCurrentPiece();
     }
 
     private void HardDrop()
@@ -836,54 +801,12 @@ public partial class MainWindow : Window
 
     private void LockPiece()
     {
-        foreach (var cell in _currentPiece.Cells)
-        {
-            var boardX = _currentX + (int)cell.X;
-            var boardY = _currentY + (int)cell.Y;
-            if (boardY >= 0 && boardY < BoardHeight && boardX >= 0 && boardX < BoardWidth)
-            {
-                _board[boardY, boardX] = _currentPiece.Color;
-            }
-        }
+        _engine.LockPiece();
     }
 
     private List<int> ClearFullLines()
     {
-        List<int> removedRows = [];
-
-        for (var y = BoardHeight - 1; y >= 0; y--)
-        {
-            var isFull = true;
-            for (var x = 0; x < BoardWidth; x++)
-            {
-                if (_board[y, x] is null)
-                {
-                    isFull = false;
-                    break;
-                }
-            }
-
-            if (!isFull)
-            {
-                continue;
-            }
-
-            removedRows.Add(y);
-            for (var pullY = y; pullY > 0; pullY--)
-            {
-                for (var x = 0; x < BoardWidth; x++)
-                {
-                    _board[pullY, x] = _board[pullY - 1, x];
-                }
-            }
-
-            for (var x = 0; x < BoardWidth; x++)
-            {
-                _board[0, x] = null;
-            }
-
-            y++;
-        }
+        List<int> removedRows = _engine.ClearFullLines();
 
         if (removedRows.Count == 0)
         {
@@ -2006,7 +1929,6 @@ public partial class MainWindow : Window
         Draw();
     }
 
-    private record Tetromino(Point[] Cells, Brush Color, bool IsSquare);
     private record ScoreEntry(string Name, int Points);
     private record GameSettings(string Nick, int StartLevelIndex, int GameModeIndex, int ThemeIndex, double MusicVolume, double EffectsVolume);
 
