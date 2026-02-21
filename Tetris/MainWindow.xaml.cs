@@ -578,6 +578,7 @@ public partial class MainWindow : Window
             }
         }
 
+        UpdateHud();
         Draw();
     }
 
