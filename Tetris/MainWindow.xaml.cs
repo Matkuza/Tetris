@@ -61,6 +61,7 @@ public partial class MainWindow : Window
     private int _survivalTickCounter;
     private readonly Stopwatch _ultraStopwatch = new();
     private readonly Stopwatch _inputStopwatch = Stopwatch.StartNew();
+    private readonly Stopwatch _sessionStopwatch = new();
     private double _cellSize = 36;
     private bool _isFadeThemeActive;
     private bool _isHighscoreUnlocked;
@@ -85,6 +86,12 @@ public partial class MainWindow : Window
     private long _horizontalPressedAtMs;
     private long _lastHorizontalRepeatMs;
     private bool _softDropPressed;
+    private int _piecesLocked;
+    private int _playerActions;
+    private int _tetrisLineClears;
+    private long _totalLockDelayMs;
+    private int _lockSamples;
+    private long? _groundContactStartedMs;
 
 
     private Color _emptyCellColor = Color.FromRgb(12, 20, 38);
@@ -511,10 +518,18 @@ public partial class MainWindow : Window
             2 => 8,
             _ => 1
         };
-        _activeGameMode = (GameMode)Math.Clamp(GameModeComboBox.SelectedIndex, 0, 3);
+        _activeGameMode = (GameMode)Math.Clamp(GameModeComboBox.SelectedIndex, 0, 4);
         _selectedHighscoreMode = _activeGameMode;
         HighscoreModeComboBox.SelectedIndex = (int)_selectedHighscoreMode;
         _ultraStopwatch.Reset();
+        _sessionStopwatch.Reset();
+        _sessionStopwatch.Start();
+        _piecesLocked = 0;
+        _playerActions = 0;
+        _tetrisLineClears = 0;
+        _totalLockDelayMs = 0;
+        _lockSamples = 0;
+        _groundContactStartedMs = null;
         if (_activeGameMode == GameMode.Ultra)
         {
             _ultraStopwatch.Start();
@@ -535,8 +550,10 @@ public partial class MainWindow : Window
 
     private void SetTimerSpeed()
     {
-        var level = _startLevel + (_linesCleared / 8);
-        var speedMs = Math.Max(30, 620 - (level - 1) * 85);
+        var level = _startLevel + (_linesCleared / (_activeGameMode == GameMode.Marathon ? 10 : 8));
+        var speedMs = _activeGameMode == GameMode.Marathon
+            ? Math.Max(65, 780 - (level - 1) * 50)
+            : Math.Max(30, 620 - (level - 1) * 85);
         _timer.Interval = TimeSpan.FromMilliseconds(speedMs);
     }
 
@@ -560,9 +577,11 @@ public partial class MainWindow : Window
         {
             _groundedTicks = 0;
             _lockResetsUsed = 0;
+            _groundContactStartedMs = null;
         }
         else
         {
+            _groundContactStartedMs ??= _sessionStopwatch.ElapsedMilliseconds;
             _groundedTicks++;
             if (_groundedTicks >= GetLockDelayTicks())
             {
@@ -629,6 +648,7 @@ public partial class MainWindow : Window
         if (moved)
         {
             RefreshLockDelayAfterPlayerAction(true);
+            _playerActions++;
         }
 
         _lastHorizontalRepeatMs = nowMs;
@@ -645,6 +665,7 @@ public partial class MainWindow : Window
         {
             _groundedTicks = 0;
             _lockResetsUsed = 0;
+            _playerActions++;
         }
     }
 
@@ -657,6 +678,7 @@ public partial class MainWindow : Window
         _currentY = 0;
         _groundedTicks = 0;
         _lockResetsUsed = 0;
+        _groundContactStartedMs = null;
 
         if (_engine.IsGameOverOnSpawn(_currentX, _currentY, _currentPiece.Cells))
         {
@@ -682,6 +704,7 @@ public partial class MainWindow : Window
         _gameOver = true;
         _timer.Stop();
         _ultraStopwatch.Stop();
+        _sessionStopwatch.Stop();
         StopBackgroundMusic();
         if (playDefeatSound)
         {
@@ -921,6 +944,21 @@ public partial class MainWindow : Window
     private void LockPiece()
     {
         _engine.LockPiece();
+        RegisterPieceLockStats();
+    }
+
+    private void RegisterPieceLockStats()
+    {
+        _piecesLocked++;
+        if (_groundContactStartedMs is null)
+        {
+            return;
+        }
+
+        var lockDelay = Math.Max(0, _sessionStopwatch.ElapsedMilliseconds - _groundContactStartedMs.Value);
+        _totalLockDelayMs += lockDelay;
+        _lockSamples++;
+        _groundContactStartedMs = null;
     }
 
     private List<int> ClearFullLines()
@@ -934,6 +972,10 @@ public partial class MainWindow : Window
 
         _linesCleared += removedRows.Count;
         _score += GameEngine.CalculateScoreForClearedLines(removedRows.Count);
+        if (removedRows.Count == 4)
+        {
+            _tetrisLineClears++;
+        }
 
         SetTimerSpeed();
         UpdateHud();
@@ -993,7 +1035,7 @@ public partial class MainWindow : Window
 
     private void UpdateHud()
     {
-        var level = _startLevel + (_linesCleared / 8);
+        var level = _startLevel + (_linesCleared / (_activeGameMode == GameMode.Marathon ? 10 : 8));
         var activeModeScores = GetHighScoresForMode(_activeGameMode);
         var best = activeModeScores.Count == 0 ? 0 : activeModeScores.Max(h => h.Points);
         ScoreText.Text = _score.ToString();
@@ -1001,13 +1043,19 @@ public partial class MainWindow : Window
         LevelText.Text = level.ToString();
 
         var ultraElapsedSeconds = (int)_ultraStopwatch.Elapsed.TotalSeconds;
+        var sessionSeconds = Math.Max(1d, _sessionStopwatch.Elapsed.TotalSeconds);
+        var apm = _playerActions * 60d / sessionSeconds;
+        var pps = _piecesLocked / sessionSeconds;
+        var averageLockDelay = _lockSamples == 0 ? 0 : (int)Math.Round((double)_totalLockDelayMs / _lockSamples);
         var timerText = _activeGameMode switch
         {
             GameMode.Sprint => $"{Math.Max(0, 40 - _linesCleared)} linii",
             GameMode.Ultra => TimeSpan.FromSeconds(Math.Max(0, 120 - ultraElapsedSeconds)).ToString(@"mm\:ss"),
+            GameMode.Marathon => $"Lvl+ {Math.Max(0, 10 - (_linesCleared % 10))} linii",
             _ => "--:--"
         };
         ModeTimerText.Text = timerText;
+        SessionStatsText.Text = $"APM: {apm:0.0} • PPS: {pps:0.00} • Lock: {averageLockDelay}ms • Tetris: {_tetrisLineClears}";
 
         if (!_gameOver)
         {
@@ -1016,6 +1064,7 @@ public partial class MainWindow : Window
                 GameMode.Survival => "SURVIVAL",
                 GameMode.Sprint => "SPRINT 40",
                 GameMode.Ultra => $"ULTRA {timerText}",
+                GameMode.Marathon => "MARATHON",
                 _ => "KLASYCZNY"
             };
             StatusText.Text = _isPaused
@@ -1256,6 +1305,10 @@ public partial class MainWindow : Window
             {
                 var moved = TryMove(_currentX + direction, _currentY, _currentPiece.Cells);
                 RefreshLockDelayAfterPlayerAction(moved);
+                if (moved)
+                {
+                    _playerActions++;
+                }
                 PlayEffect("rotate");
             }
 
@@ -1271,6 +1324,7 @@ public partial class MainWindow : Window
             {
                 _groundedTicks = 0;
                 _lockResetsUsed = 0;
+                _playerActions++;
                 Draw();
             }
 
@@ -1281,6 +1335,10 @@ public partial class MainWindow : Window
         {
             var rotated = RotateCurrentPiece();
             RefreshLockDelayAfterPlayerAction(rotated);
+            if (rotated)
+            {
+                _playerActions++;
+            }
             PlayEffect("rotate");
             Draw();
             return;
@@ -1288,12 +1346,14 @@ public partial class MainWindow : Window
 
         if (e.Key == _hardDropKey)
         {
+            _playerActions++;
             HardDrop();
             return;
         }
 
         if (e.Key == _holdKey)
         {
+            _playerActions++;
             HoldCurrentPiece();
             Draw();
             return;
@@ -1340,6 +1400,7 @@ public partial class MainWindow : Window
                 _ultraStopwatch.Stop();
             }
 
+            _sessionStopwatch.Stop();
             StopBackgroundMusic();
         }
         else
@@ -1350,6 +1411,7 @@ public partial class MainWindow : Window
                 _ultraStopwatch.Start();
             }
 
+            _sessionStopwatch.Start();
             PlayBackgroundMusic();
         }
 
@@ -1544,7 +1606,7 @@ public partial class MainWindow : Window
             _isLoadingSettings = true;
             NickTextBox.Text = string.IsNullOrWhiteSpace(settings.Nick) ? "Gracz" : settings.Nick;
             StartLevelComboBox.SelectedIndex = Math.Clamp(settings.StartLevelIndex, 0, 2);
-            GameModeComboBox.SelectedIndex = Math.Clamp(settings.GameModeIndex, 0, 3);
+            GameModeComboBox.SelectedIndex = Math.Clamp(settings.GameModeIndex, 0, 4);
             ThemeComboBox.SelectedIndex = Math.Clamp(settings.ThemeIndex, 0, 2);
             MusicVolumeSlider.Value = Math.Clamp(settings.MusicVolume, 0, 1);
             EffectsVolumeSlider.Value = Math.Clamp(settings.EffectsVolume, 0, 1);
@@ -2059,7 +2121,7 @@ public partial class MainWindow : Window
 
     private void HighscoreModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        _selectedHighscoreMode = (GameMode)Math.Clamp(HighscoreModeComboBox.SelectedIndex, 0, 3);
+        _selectedHighscoreMode = (GameMode)Math.Clamp(HighscoreModeComboBox.SelectedIndex, 0, 4);
         RefreshHighScores();
     }
 
@@ -2070,7 +2132,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        HighscoreModeComboBox.SelectedIndex = Math.Clamp(GameModeComboBox.SelectedIndex, 0, 3);
+        HighscoreModeComboBox.SelectedIndex = Math.Clamp(GameModeComboBox.SelectedIndex, 0, 4);
     }
 
     private bool EnsureHighscoreUnlocked()
@@ -2297,7 +2359,8 @@ public partial class MainWindow : Window
         Classic = 0,
         Survival = 1,
         Sprint = 2,
-        Ultra = 3
+        Ultra = 3,
+        Marathon = 4
     }
 
     private enum AdOrderMode

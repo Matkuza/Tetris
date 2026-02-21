@@ -188,6 +188,13 @@
                 </StackPanel>
             </Border>
 
+            <Border x:Name="SessionStatsCard" CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="16" Margin="0,0,0,12">
+                <StackPanel>
+                    <TextBlock Text="STATYSTYKI SESJI" Foreground="#94A3B8" FontSize="13" Margin="0,0,0,6" />
+                    <TextBlock x:Name="SessionStatsText" Text="APM: 0 • PPS: 0.00 • Lock: 0ms • Tetris: 0" Foreground="#F8FAFC" FontSize="15" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
             <Border x:Name="NextCard" CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="16" Margin="0,0,0,12">
                 <StackPanel>
                     <TextBlock Text="NASTĘPNY KLOCEK" Foreground="#94A3B8" FontSize="13" Margin="0,0,0,8" />
@@ -331,6 +338,7 @@
                                     <ComboBoxItem Content="Survival" />
                                     <ComboBoxItem Content="Sprint (40 linii)" />
                                     <ComboBoxItem Content="Ultra (120s)" />
+                                    <ComboBoxItem Content="Marathon" />
                                 </ComboBox>
 
                                 <TextBlock Text="Tryb kolorów" Foreground="#CBD5E1" FontSize="18" />
@@ -403,6 +411,7 @@
                                         <ComboBoxItem Content="Survival" />
                                         <ComboBoxItem Content="Sprint" />
                                         <ComboBoxItem Content="Ultra" />
+                                        <ComboBoxItem Content="Marathon" />
                                     </ComboBox>
                                 </DockPanel>
 

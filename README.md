@@ -3,10 +3,11 @@
 Arcade Tetris clone in C# / WPF with multiple modes, per-mode highscores, ghost piece, hold, configurable controls, DAS/ARR and ad panel manager.
 
 ## Features
-- Classic, Survival, Sprint (40 lines), Ultra (120s).
+- Classic, Survival, Sprint (40 lines), Ultra (120s), Marathon.
 - 7-bag randomizer.
 - Ghost piece and hold piece.
 - Per-mode highscores (JSON persistence).
+- Session stats in HUD: APM / PPS / average lock delay / Tetris clears.
 - Configurable keybinds and DAS/ARR in settings.
 
 ## Controls (default)
