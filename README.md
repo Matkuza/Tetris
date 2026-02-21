@@ -42,3 +42,9 @@ The app stores data in `Tetris/AdAssets/`:
 
 ## CI
 A GitHub Actions workflow is included in `.github/workflows/dotnet-ci.yml` and runs restore/build/test on push and pull request.
+
+
+## Release
+- Changelog: `CHANGELOG.md`
+- Release process: `RELEASE_CHECKLIST.md`
+- Runtime data/migration policy: `Tetris/AdAssets/README.md`
