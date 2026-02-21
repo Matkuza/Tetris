@@ -25,7 +25,7 @@ public partial class MainWindow : Window
     private readonly GameEngine _engine = new(BoardWidth, BoardHeight);
     private readonly Random _random = new();
     private readonly DispatcherTimer _timer;
-    private readonly List<ScoreEntry> _highScores = [];
+    private readonly Dictionary<GameMode, List<ScoreEntry>> _highScoresByMode = [];
     private readonly ObservableCollection<AdEntry> _ads = [];
     private readonly DispatcherTimer _adTimer;
     private readonly DispatcherTimer _visualFxTimer;
@@ -55,8 +55,10 @@ public partial class MainWindow : Window
     private bool _isPaused;
     private bool _isLoadingSettings = true;
     private int _startLevel;
-    private bool _isSurvivalMode;
+    private GameMode _activeGameMode = GameMode.Classic;
+    private GameMode _selectedHighscoreMode = GameMode.Classic;
     private int _survivalTickCounter;
+    private int _ultraElapsedMs;
     private double _cellSize = 36;
     private bool _isFadeThemeActive;
     private bool _isHighscoreUnlocked;
@@ -486,7 +488,10 @@ public partial class MainWindow : Window
             2 => 8,
             _ => 1
         };
-        _isSurvivalMode = GameModeComboBox.SelectedIndex == 1;
+        _activeGameMode = (GameMode)Math.Clamp(GameModeComboBox.SelectedIndex, 0, 3);
+        _selectedHighscoreMode = _activeGameMode;
+        HighscoreModeComboBox.SelectedIndex = (int)_selectedHighscoreMode;
+        _ultraElapsedMs = 0;
 
         var nick = NickTextBox.Text.Trim();
         PlayerNameText.Text = string.IsNullOrWhiteSpace(nick) ? "Gracz" : nick;
@@ -543,7 +548,7 @@ public partial class MainWindow : Window
             }
         }
 
-        if (_isSurvivalMode)
+        if (_activeGameMode == GameMode.Survival)
         {
             _survivalTickCounter++;
             var interval = Math.Max(6, 22 - (_linesCleared / 6));
@@ -555,6 +560,16 @@ public partial class MainWindow : Window
                 {
                     return;
                 }
+            }
+        }
+
+        if (_activeGameMode == GameMode.Ultra)
+        {
+            _ultraElapsedMs += (int)_timer.Interval.TotalMilliseconds;
+            if (_ultraElapsedMs >= 120000)
+            {
+                FinishGame("ULTRA ZAKOŃCZONE • Spacja: menu start • Esc: zamknij");
+                return;
             }
         }
 
@@ -580,6 +595,11 @@ public partial class MainWindow : Window
 
     private void OnGameOver()
     {
+        FinishGame("PRZEGRAŁEŚ • Spacja: menu start • Esc: zamknij", true);
+    }
+
+    private void FinishGame(string statusText, bool playDefeatSound = false)
+    {
         if (_gameOver)
         {
             return;
@@ -588,20 +608,37 @@ public partial class MainWindow : Window
         _gameOver = true;
         _timer.Stop();
         StopBackgroundMusic();
-        PlayEffect("defeat");
+        if (playDefeatSound)
+        {
+            PlayEffect("defeat");
+        }
+
         RegisterScore();
         GameOverOverlay.Visibility = Visibility.Visible;
-        StatusText.Text = "PRZEGRAŁEŚ • Spacja: menu start • Esc: zamknij";
+        StatusText.Text = statusText;
+    }
+
+    private List<ScoreEntry> GetHighScoresForMode(GameMode mode)
+    {
+        if (_highScoresByMode.TryGetValue(mode, out var scores))
+        {
+            return scores;
+        }
+
+        scores = [];
+        _highScoresByMode[mode] = scores;
+        return scores;
     }
 
     private void RegisterScore()
     {
         var nick = string.IsNullOrWhiteSpace(PlayerNameText.Text) ? "Gracz" : PlayerNameText.Text;
-        _highScores.Add(new ScoreEntry(nick, _score));
-        _highScores.Sort((a, b) => b.Points.CompareTo(a.Points));
-        if (_highScores.Count > 5)
+        var modeScores = GetHighScoresForMode(_activeGameMode);
+        modeScores.Add(new ScoreEntry(nick, _score));
+        modeScores.Sort((a, b) => b.Points.CompareTo(a.Points));
+        if (modeScores.Count > 5)
         {
-            _highScores.RemoveRange(5, _highScores.Count - 5);
+            modeScores.RemoveRange(5, modeScores.Count - 5);
         }
 
         RefreshHighScores();
@@ -612,10 +649,12 @@ public partial class MainWindow : Window
     {
         StartHighScoresListBox.Items.Clear();
 
+        var modeScores = GetHighScoresForMode(_selectedHighscoreMode);
+
         for (var i = 0; i < 5; i++)
         {
-            var hasEntry = i < _highScores.Count;
-            var entry = hasEntry ? _highScores[i] : new ScoreEntry("---", 0);
+            var hasEntry = i < modeScores.Count;
+            var entry = hasEntry ? modeScores[i] : new ScoreEntry("---", 0);
 
             var rankText = new TextBlock
             {
@@ -827,6 +866,12 @@ public partial class MainWindow : Window
         UpdateHud();
         AnimateScorePulse();
         PlayEffect("lineClear");
+
+        if (_activeGameMode == GameMode.Sprint && _linesCleared >= 40)
+        {
+            FinishGame("SPRINT UKOŃCZONY • Spacja: menu start • Esc: zamknij");
+        }
+
         return removedRows;
     }
 
@@ -876,14 +921,21 @@ public partial class MainWindow : Window
     private void UpdateHud()
     {
         var level = _startLevel + (_linesCleared / 8);
-        var best = _highScores.Count == 0 ? 0 : _highScores.Max(h => h.Points);
+        var activeModeScores = GetHighScoresForMode(_activeGameMode);
+        var best = activeModeScores.Count == 0 ? 0 : activeModeScores.Max(h => h.Points);
         ScoreText.Text = _score.ToString();
         BestScoreText.Text = $"BEST: {best}";
         LevelText.Text = level.ToString();
 
         if (!_gameOver)
         {
-            var modeText = _isSurvivalMode ? "SURVIVAL" : "KLASYCZNY";
+            var modeText = _activeGameMode switch
+            {
+                GameMode.Survival => "SURVIVAL",
+                GameMode.Sprint => "SPRINT 40",
+                GameMode.Ultra => $"ULTRA {(120 - (_ultraElapsedMs / 1000)):D3}s",
+                _ => "KLASYCZNY"
+            };
             StatusText.Text = _isPaused
                 ? "PAUZA • P: wznów • Esc"
                 : $"{modeText} • Strzałki: ruch/obrót • Spacja: zrzut • P: pauza • Esc";
@@ -1179,7 +1231,12 @@ public partial class MainWindow : Window
 
     private void LoadHighScores()
     {
-        _highScores.Clear();
+        _highScoresByMode.Clear();
+        foreach (var mode in Enum.GetValues<GameMode>())
+        {
+            _highScoresByMode[mode] = [];
+        }
+
         if (!File.Exists(_highScoresPath))
         {
             RefreshHighScores();
@@ -1189,12 +1246,42 @@ public partial class MainWindow : Window
         try
         {
             var json = File.ReadAllText(_highScoresPath);
-            var entries = JsonSerializer.Deserialize<List<ScoreEntry>>(json) ?? [];
-            _highScores.AddRange(entries.OrderByDescending(e => e.Points).Take(5));
+            var trimmed = json.TrimStart();
+            if (trimmed.StartsWith("[", StringComparison.Ordinal))
+            {
+                var legacyEntries = JsonSerializer.Deserialize<List<ScoreEntry>>(json) ?? [];
+                _highScoresByMode[GameMode.Classic] = legacyEntries
+                    .OrderByDescending(e => e.Points)
+                    .Take(5)
+                    .ToList();
+
+                RefreshHighScores();
+                return;
+            }
+
+            var store = JsonSerializer.Deserialize<HighscoreStore>(json);
+            if (store?.Modes is not null && store.Modes.Count > 0)
+            {
+                foreach (var (modeKey, entries) in store.Modes)
+                {
+                    if (!Enum.TryParse<GameMode>(modeKey, true, out var parsedMode))
+                    {
+                        continue;
+                    }
+
+                    _highScoresByMode[parsedMode] = (entries ?? [])
+                        .OrderByDescending(e => e.Points)
+                        .Take(5)
+                        .ToList();
+                }
+            }
         }
         catch
         {
-            _highScores.Clear();
+            foreach (var mode in Enum.GetValues<GameMode>())
+            {
+                _highScoresByMode[mode] = [];
+            }
         }
 
         RefreshHighScores();
@@ -1202,7 +1289,11 @@ public partial class MainWindow : Window
 
     private void SaveHighScores()
     {
-        var json = JsonSerializer.Serialize(_highScores, JsonWriteOptions);
+        var modes = _highScoresByMode.ToDictionary(
+            pair => pair.Key.ToString(),
+            pair => pair.Value.OrderByDescending(e => e.Points).Take(5).ToList());
+
+        var json = JsonSerializer.Serialize(new HighscoreStore(modes), JsonWriteOptions);
         File.WriteAllText(_highScoresPath, json);
     }
 
@@ -1226,7 +1317,7 @@ public partial class MainWindow : Window
             _isLoadingSettings = true;
             NickTextBox.Text = string.IsNullOrWhiteSpace(settings.Nick) ? "Gracz" : settings.Nick;
             StartLevelComboBox.SelectedIndex = Math.Clamp(settings.StartLevelIndex, 0, 2);
-            GameModeComboBox.SelectedIndex = Math.Clamp(settings.GameModeIndex, 0, 1);
+            GameModeComboBox.SelectedIndex = Math.Clamp(settings.GameModeIndex, 0, 3);
             ThemeComboBox.SelectedIndex = Math.Clamp(settings.ThemeIndex, 0, 2);
             MusicVolumeSlider.Value = Math.Clamp(settings.MusicVolume, 0, 1);
             EffectsVolumeSlider.Value = Math.Clamp(settings.EffectsVolume, 0, 1);
@@ -1712,6 +1803,22 @@ public partial class MainWindow : Window
         ShowStartMenuSection(StartMenuSection.Settings);
     }
 
+    private void HighscoreModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        _selectedHighscoreMode = (GameMode)Math.Clamp(HighscoreModeComboBox.SelectedIndex, 0, 3);
+        RefreshHighScores();
+    }
+
+    private void GameModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (HighscoreModeComboBox is null)
+        {
+            return;
+        }
+
+        HighscoreModeComboBox.SelectedIndex = Math.Clamp(GameModeComboBox.SelectedIndex, 0, 3);
+    }
+
     private bool EnsureHighscoreUnlocked()
     {
         if (_isHighscoreUnlocked)
@@ -1752,13 +1859,14 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (sender is not Button { Tag: int index } || index < 0 || index >= _highScores.Count)
+        var modeScores = GetHighScoresForMode(_selectedHighscoreMode);
+        if (sender is not Button { Tag: int index } || index < 0 || index >= modeScores.Count)
         {
             HighscoreManageHintText.Text = "Nie udało się usunąć rekordu.";
             return;
         }
 
-        _highScores.RemoveAt(index);
+        modeScores.RemoveAt(index);
         RefreshHighScores();
         SaveHighScores();
         UpdateHud();
@@ -1773,7 +1881,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (sender is not Button { Tag: int index } || index < 0 || index >= _highScores.Count)
+        var modeScores = GetHighScoresForMode(_selectedHighscoreMode);
+        if (sender is not Button { Tag: int index } || index < 0 || index >= modeScores.Count)
         {
             HighscoreManageHintText.Text = "Nie udało się edytować rekordu.";
             return;
@@ -1801,7 +1910,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (sender is not Button { Tag: int index } || index < 0 || index >= _highScores.Count)
+        var modeScores = GetHighScoresForMode(_selectedHighscoreMode);
+        if (sender is not Button { Tag: int index } || index < 0 || index >= modeScores.Count)
         {
             HighscoreManageHintText.Text = "Nie udało się zapisać nicku.";
             return;
@@ -1822,8 +1932,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        var current = _highScores[index];
-        _highScores[index] = current with { Name = newName };
+        var current = modeScores[index];
+        modeScores[index] = current with { Name = newName };
         SaveHighScores();
         RefreshHighScores();
         UpdateHud();
@@ -1926,7 +2036,16 @@ public partial class MainWindow : Window
     }
 
     private record ScoreEntry(string Name, int Points);
+    private record HighscoreStore(Dictionary<string, List<ScoreEntry>> Modes);
     private record GameSettings(string Nick, int StartLevelIndex, int GameModeIndex, int ThemeIndex, double MusicVolume, double EffectsVolume);
+
+    private enum GameMode
+    {
+        Classic = 0,
+        Survival = 1,
+        Sprint = 2,
+        Ultra = 3
+    }
 
     private enum AdOrderMode
     {

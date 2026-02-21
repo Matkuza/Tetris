@@ -305,6 +305,7 @@
                                 <TextBlock Text="Tryb gry" Foreground="#CBD5E1" FontSize="18" />
                                 <ComboBox x:Name="GameModeComboBox"
                                           SelectedIndex="0"
+                                          SelectionChanged="GameModeComboBox_SelectionChanged"
                                           Margin="0,8,0,16"
                                           Padding="8"
                                           FontSize="18"
@@ -313,6 +314,8 @@
                                           BorderBrush="#3C577C">
                                     <ComboBoxItem Content="Klasyczny" />
                                     <ComboBoxItem Content="Survival" />
+                                    <ComboBoxItem Content="Sprint (40 linii)" />
+                                    <ComboBoxItem Content="Ultra (120s)" />
                                 </ComboBox>
 
                                 <TextBlock Text="Tryb kolorów" Foreground="#CBD5E1" FontSize="18" />
@@ -356,6 +359,7 @@
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
                                     <RowDefinition Height="*" />
                                     <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
@@ -367,7 +371,27 @@
                                            FontWeight="Bold"
                                            Margin="0,0,0,12" />
 
-                                <Border Grid.Row="1" CornerRadius="10" BorderBrush="#4A648A" BorderThickness="1" Background="#102442" Padding="12" Margin="0,0,0,12">
+                                <DockPanel Grid.Row="1" Margin="0,0,0,12">
+                                    <TextBlock Text="Ranking trybu:"
+                                               Foreground="#CBD5E1"
+                                               FontSize="16"
+                                               VerticalAlignment="Center" />
+                                    <ComboBox x:Name="HighscoreModeComboBox"
+                                              SelectionChanged="HighscoreModeComboBox_SelectionChanged"
+                                              Width="240"
+                                              Margin="12,0,0,0"
+                                              SelectedIndex="0"
+                                              Background="#0A162C"
+                                              Foreground="#F8FAFC"
+                                              BorderBrush="#3C577C">
+                                        <ComboBoxItem Content="Klasyczny" />
+                                        <ComboBoxItem Content="Survival" />
+                                        <ComboBoxItem Content="Sprint" />
+                                        <ComboBoxItem Content="Ultra" />
+                                    </ComboBox>
+                                </DockPanel>
+
+                                <Border Grid.Row="2" CornerRadius="10" BorderBrush="#4A648A" BorderThickness="1" Background="#102442" Padding="12" Margin="0,0,0,12">
                                     <StackPanel>
                                         <TextBlock Text="Podaj hasło, aby odblokować edycję nicków i usuwanie rekordów" Foreground="#CBD5E1" FontSize="14" />
                                         <DockPanel Margin="0,10,0,0">
@@ -393,7 +417,7 @@
                                     </StackPanel>
                                 </Border>
 
-                                <ListBox Grid.Row="2"
+                                <ListBox Grid.Row="3"
                                          x:Name="StartHighScoresListBox"
                                          Background="#0A162C"
                                          BorderBrush="#3C577C"
@@ -401,7 +425,7 @@
                                          FontSize="18"
                                          Padding="6" />
 
-                                <TextBlock Grid.Row="3"
+                                <TextBlock Grid.Row="4"
                                            x:Name="HighscoreManageHintText"
                                            Foreground="#FCA5A5"
                                            FontSize="15"
