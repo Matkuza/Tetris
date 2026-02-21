@@ -446,7 +446,7 @@ public partial class MainWindow : Window
 
     private void ClearFadeAccentEffects()
     {
-        foreach (var border in (Border[])[BoardBorder, AdBorder, AdSlotTopBorder, AdSlotMiddleBorder, AdSlotBottomBorder, NickCard, ScoreCard, LevelCard, NextCard, StatusCard])
+        foreach (var border in (Border[])[BoardBorder, AdBorder, AdSlotTopBorder, AdSlotMiddleBorder, AdSlotBottomBorder, NickCard, ScoreCard, LevelCard, TimerCard, NextCard, StatusCard])
         {
             border.Effect = null;
         }
@@ -457,7 +457,7 @@ public partial class MainWindow : Window
         var borderBrush = new SolidColorBrush(border);
         var titleBrush = new SolidColorBrush(titleColor);
 
-        foreach (var card in (Border[])[NickCard, ScoreCard, LevelCard, NextCard, StatusCard])
+        foreach (var card in (Border[])[NickCard, ScoreCard, LevelCard, TimerCard, NextCard, StatusCard])
         {
             card.Background = bgBrush;
             card.BorderBrush = borderBrush;
@@ -932,13 +932,21 @@ public partial class MainWindow : Window
         BestScoreText.Text = $"BEST: {best}";
         LevelText.Text = level.ToString();
 
+        var timerText = _activeGameMode switch
+        {
+            GameMode.Sprint => $"{Math.Max(0, 40 - _linesCleared)} linii",
+            GameMode.Ultra => TimeSpan.FromSeconds(Math.Max(0, 120 - (_ultraElapsedMs / 1000))).ToString(@"mm\:ss"),
+            _ => "--:--"
+        };
+        ModeTimerText.Text = timerText;
+
         if (!_gameOver)
         {
             var modeText = _activeGameMode switch
             {
                 GameMode.Survival => "SURVIVAL",
                 GameMode.Sprint => "SPRINT 40",
-                GameMode.Ultra => $"ULTRA {(120 - (_ultraElapsedMs / 1000)):D3}s",
+                GameMode.Ultra => $"ULTRA {timerText}",
                 _ => "KLASYCZNY"
             };
             StatusText.Text = _isPaused

@@ -180,6 +180,13 @@
                 </StackPanel>
             </Border>
 
+            <Border x:Name="TimerCard" CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="16" Margin="0,0,0,12">
+                <StackPanel>
+                    <TextBlock Text="TIMER" Foreground="#94A3B8" FontSize="13" />
+                    <TextBlock x:Name="ModeTimerText" Text="--:--" Foreground="#F8FAFC" FontSize="30" FontWeight="SemiBold" />
+                </StackPanel>
+            </Border>
+
             <Border x:Name="NextCard" CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="16" Margin="0,0,0,12">
                 <StackPanel>
                     <TextBlock Text="NASTĘPNY KLOCEK" Foreground="#94A3B8" FontSize="13" Margin="0,0,0,8" />
