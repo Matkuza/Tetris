@@ -234,17 +234,38 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <StackPanel Grid.Row="0" Margin="0,40,0,12" HorizontalAlignment="Center">
-                <TextBlock Text="TETRIS"
-                           Foreground="#F8FAFC"
-                           FontSize="72"
-                           FontWeight="Black"
-                           HorizontalAlignment="Center" />
-                <TextBlock Text="MENU GŁÓWNE"
-                           Foreground="#94A3B8"
-                           FontSize="20"
-                           HorizontalAlignment="Center" />
-            </StackPanel>
+            <Border Grid.Row="0"
+                    Margin="0,24,0,8"
+                    CornerRadius="18"
+                    Background="#121F39"
+                    BorderBrush="#355071"
+                    BorderThickness="1"
+                    Padding="20,14">
+                <StackPanel HorizontalAlignment="Center">
+                    <TextBlock Text="TETRIS"
+                               Foreground="#F8FAFC"
+                               FontSize="72"
+                               FontWeight="Black"
+                               HorizontalAlignment="Center" />
+                    <TextBlock Text="MENU GŁÓWNE"
+                               Foreground="#94A3B8"
+                               FontSize="20"
+                               HorizontalAlignment="Center" />
+                    <DockPanel Margin="0,12,0,0" LastChildFill="False" HorizontalAlignment="Center">
+                        <Border CornerRadius="999" Background="#1D4ED8" Padding="12,4" Margin="0,0,10,0">
+                            <TextBlock Text="WERSJA 1.1.0" Foreground="#DBEAFE" FontWeight="Bold" FontSize="12" />
+                        </Border>
+                        <Button Content="CO NOWEGO"
+                                Click="OpenWhatsNewButton_Click"
+                                Padding="14,6"
+                                FontSize="13"
+                                FontWeight="Bold"
+                                Background="#24344F"
+                                Foreground="#F8FAFC"
+                                BorderBrush="#4A648A" />
+                    </DockPanel>
+                </StackPanel>
+            </Border>
 
             <Border Grid.Row="1"
                     Margin="80,18,80,20"
@@ -264,6 +285,7 @@
                         <Button x:Name="MenuNewGameButton"
                                 Content="NOWA GRA"
                                 Click="MenuNewGameButton_Click"
+                                Style="{DynamicResource MainMenuTabButtonStyle}"
                                 FontSize="24"
                                 FontWeight="Bold"
                                 Height="70"
@@ -274,6 +296,7 @@
                         <Button x:Name="MenuHighscoreButton"
                                 Content="HIGHSCORE"
                                 Click="MenuHighscoreButton_Click"
+                                Style="{DynamicResource MainMenuTabButtonStyle}"
                                 FontSize="24"
                                 FontWeight="Bold"
                                 Height="70"
@@ -284,6 +307,7 @@
                         <Button x:Name="MenuSettingsButton"
                                 Content="SETTINGS"
                                 Click="MenuSettingsButton_Click"
+                                Style="{DynamicResource MainMenuTabButtonStyle}"
                                 FontSize="24"
                                 FontWeight="Bold"
                                 Height="70"
@@ -295,15 +319,77 @@
 
                     <Grid Grid.Row="2">
                         <Grid.Resources>
+                            <Style x:Key="MainMenuTabButtonStyle" TargetType="Button">
+                                <Setter Property="BorderThickness" Value="2" />
+                                <Setter Property="Padding" Value="12,8" />
+                                <Setter Property="Cursor" Value="Hand" />
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="ButtonBorder"
+                                                    CornerRadius="14"
+                                                    Background="{TemplateBinding Background}"
+                                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                                    BorderThickness="{TemplateBinding BorderThickness}">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="ButtonBorder" Property="Background" Value="#2563EB" />
+                                                </Trigger>
+                                                <Trigger Property="IsPressed" Value="True">
+                                                    <Setter TargetName="ButtonBorder" Property="Background" Value="#1E40AF" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+
                             <Style TargetType="ComboBox">
                                 <Setter Property="Background" Value="#0A162C" />
                                 <Setter Property="Foreground" Value="#F8FAFC" />
                                 <Setter Property="BorderBrush" Value="#3C577C" />
                                 <Setter Property="Padding" Value="8" />
+                                <Setter Property="ItemContainerStyle">
+                                    <Setter.Value>
+                                        <Style TargetType="ComboBoxItem">
+                                            <Setter Property="Background" Value="#132647" />
+                                            <Setter Property="Foreground" Value="#F8FAFC" />
+                                            <Setter Property="Padding" Value="8,4" />
+                                            <Style.Triggers>
+                                                <Trigger Property="IsHighlighted" Value="True">
+                                                    <Setter Property="Background" Value="#1D4ED8" />
+                                                    <Setter Property="Foreground" Value="#FFFFFF" />
+                                                </Trigger>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter Property="Background" Value="#2563EB" />
+                                                    <Setter Property="Foreground" Value="#FFFFFF" />
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Setter.Value>
+                                </Setter>
+                                <Style.Triggers>
+                                    <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                        <Setter Property="BorderBrush" Value="#60A5FA" />
+                                    </Trigger>
+                                </Style.Triggers>
                             </Style>
                             <Style TargetType="ComboBoxItem">
                                 <Setter Property="Background" Value="#132647" />
                                 <Setter Property="Foreground" Value="#F8FAFC" />
+                                <Setter Property="Padding" Value="8,4" />
+                                <Style.Triggers>
+                                    <Trigger Property="IsHighlighted" Value="True">
+                                        <Setter Property="Background" Value="#1D4ED8" />
+                                        <Setter Property="Foreground" Value="#FFFFFF" />
+                                    </Trigger>
+                                    <Trigger Property="IsSelected" Value="True">
+                                        <Setter Property="Background" Value="#2563EB" />
+                                        <Setter Property="Foreground" Value="#FFFFFF" />
+                                    </Trigger>
+                                </Style.Triggers>
                             </Style>
                         </Grid.Resources>
 

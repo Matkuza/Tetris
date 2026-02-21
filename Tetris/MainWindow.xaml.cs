@@ -2695,6 +2695,12 @@ public partial class MainWindow : Window
         SaveOnboardingState();
     }
 
+    private void OpenWhatsNewButton_Click(object sender, RoutedEventArgs e)
+    {
+        WhatsNewText.Text = WhatsNewMessage;
+        WhatsNewOverlay.Visibility = Visibility.Visible;
+    }
+
     private void StartButton_Click(object sender, RoutedEventArgs e)
     {
         PlayEffect("buttonClick");
