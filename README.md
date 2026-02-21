@@ -9,6 +9,7 @@ Arcade Tetris clone in C# / WPF with multiple modes, per-mode highscores, ghost 
 - Per-mode highscores (JSON persistence).
 - Session stats in HUD: APM / PPS / average lock delay / Tetris clears.
 - Configurable keybinds and DAS/ARR in settings.
+- Colorblind accessibility mode with symbol/pattern overlays on blocks.
 
 ## Controls (default)
 - Left / Right: move

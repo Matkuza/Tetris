@@ -92,6 +92,7 @@ public partial class MainWindow : Window
     private long _totalLockDelayMs;
     private int _lockSamples;
     private long? _groundContactStartedMs;
+    private bool _colorblindMode;
 
 
     private Color _emptyCellColor = Color.FromRgb(12, 20, 38);
@@ -116,6 +117,15 @@ public partial class MainWindow : Window
         Color.FromRgb(255, 95, 109), Color.FromRgb(255, 200, 87), Color.FromRgb(57, 255, 20),
         Color.FromRgb(153, 102, 255)
     ];
+
+    private static readonly Color[] ColorblindPalette =
+    [
+        Color.FromRgb(0, 114, 178), Color.FromRgb(213, 94, 0), Color.FromRgb(0, 158, 115),
+        Color.FromRgb(204, 121, 167), Color.FromRgb(230, 159, 0), Color.FromRgb(86, 180, 233),
+        Color.FromRgb(240, 228, 66)
+    ];
+
+    private static readonly string[] PieceSymbols = ["I", "J", "L", "O", "S", "T", "Z"];
 
     private Brush[] _activePaletteBrushes = [];
 
@@ -319,6 +329,25 @@ public partial class MainWindow : Window
 
     private void ApplyTheme()
     {
+        _colorblindMode = ColorblindModeCheckBox.IsChecked == true;
+
+        if (_colorblindMode)
+        {
+            _isFadeThemeActive = false;
+            _visualFxTimer.Stop();
+            ClearFadeAccentEffects();
+            _activePaletteBrushes = ColorblindPalette.Select(c => (Brush)new SolidColorBrush(c)).ToArray();
+            Background = new SolidColorBrush(Color.FromRgb(8, 10, 20));
+            _emptyCellColor = Color.FromRgb(18, 22, 34);
+            SetCardTheme(Color.FromRgb(12, 18, 30), Color.FromRgb(74, 98, 122), Color.FromRgb(236, 242, 248));
+            AdBorder.Background = new SolidColorBrush(Color.FromRgb(14, 24, 38));
+            AdBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(80, 110, 140));
+            BoardBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(80, 110, 140));
+            BoardBorder.Background = new SolidColorBrush(Color.FromRgb(8, 12, 22));
+            Draw();
+            return;
+        }
+
         _isFadeThemeActive = ThemeComboBox.SelectedIndex == 2;
         if (_isFadeThemeActive)
         {
@@ -1149,6 +1178,68 @@ public partial class MainWindow : Window
         Canvas.SetLeft(rect, x * _cellSize + 1);
         Canvas.SetTop(rect, y * _cellSize + 1);
         GameCanvas.Children.Add(rect);
+
+        if (!_colorblindMode || opacity < 0.45)
+        {
+            return;
+        }
+
+        var pieceIndex = GetPieceIndexForBrush(brush);
+        if (pieceIndex < 0 || pieceIndex >= PieceSymbols.Length)
+        {
+            return;
+        }
+
+        DrawPatternOverlay(x, y, pieceIndex);
+    }
+
+    private int GetPieceIndexForBrush(Brush brush)
+    {
+        for (var i = 0; i < _activePaletteBrushes.Length; i++)
+        {
+            if (ReferenceEquals(_activePaletteBrushes[i], brush))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    private void DrawPatternOverlay(int x, int y, int pieceIndex)
+    {
+        var left = x * _cellSize + 1;
+        var top = y * _cellSize + 1;
+        var size = _cellSize - 2;
+
+        var symbol = new TextBlock
+        {
+            Text = PieceSymbols[pieceIndex],
+            Width = size,
+            TextAlignment = TextAlignment.Center,
+            Foreground = Brushes.Black,
+            FontSize = Math.Max(10, size * 0.45),
+            FontWeight = FontWeights.Bold,
+            Opacity = 0.6
+        };
+
+        Canvas.SetLeft(symbol, left);
+        Canvas.SetTop(symbol, top + size * 0.2);
+        GameCanvas.Children.Add(symbol);
+
+        var stroke = new SolidColorBrush(Color.FromArgb(170, 255, 255, 255));
+        if (pieceIndex % 3 == 0)
+        {
+            GameCanvas.Children.Add(new Line { X1 = left + 2, Y1 = top + 2, X2 = left + size - 2, Y2 = top + size - 2, Stroke = stroke, StrokeThickness = 1.5 });
+        }
+        else if (pieceIndex % 3 == 1)
+        {
+            GameCanvas.Children.Add(new Line { X1 = left + size - 2, Y1 = top + 2, X2 = left + 2, Y2 = top + size - 2, Stroke = stroke, StrokeThickness = 1.5 });
+        }
+        else
+        {
+            GameCanvas.Children.Add(new Line { X1 = left + 2, Y1 = top + size * 0.5, X2 = left + size - 2, Y2 = top + size * 0.5, Stroke = stroke, StrokeThickness = 1.5 });
+        }
     }
 
     private void DrawNextPiece()
@@ -1535,34 +1626,13 @@ public partial class MainWindow : Window
         try
         {
             var json = File.ReadAllText(_highScoresPath);
-            var trimmed = json.TrimStart();
-            if (trimmed.StartsWith("[", StringComparison.Ordinal))
+            var parsed = HighscorePersistence.Parse(json, Enum.GetNames<GameMode>());
+            foreach (var mode in Enum.GetValues<GameMode>())
             {
-                var legacyEntries = JsonSerializer.Deserialize<List<ScoreEntry>>(json) ?? [];
-                _highScoresByMode[GameMode.Classic] = legacyEntries
-                    .OrderByDescending(e => e.Points)
-                    .Take(5)
-                    .ToList();
-
-                RefreshHighScores();
-                return;
-            }
-
-            var store = JsonSerializer.Deserialize<HighscoreStore>(json);
-            if (store?.Modes is not null && store.Modes.Count > 0)
-            {
-                foreach (var (modeKey, entries) in store.Modes)
-                {
-                    if (!Enum.TryParse<GameMode>(modeKey, true, out var parsedMode))
-                    {
-                        continue;
-                    }
-
-                    _highScoresByMode[parsedMode] = (entries ?? [])
-                        .OrderByDescending(e => e.Points)
-                        .Take(5)
-                        .ToList();
-                }
+                var key = mode.ToString();
+                _highScoresByMode[mode] = parsed.TryGetValue(key, out var entries)
+                    ? entries.Select(e => new ScoreEntry(e.Name, e.Points)).ToList()
+                    : [];
             }
         }
         catch
@@ -1580,9 +1650,9 @@ public partial class MainWindow : Window
     {
         var modes = _highScoresByMode.ToDictionary(
             pair => pair.Key.ToString(),
-            pair => pair.Value.OrderByDescending(e => e.Points).Take(5).ToList());
+            pair => pair.Value.Select(e => new ScoreEntryData(e.Name, e.Points)).ToList());
 
-        var json = JsonSerializer.Serialize(new HighscoreStore(modes), JsonWriteOptions);
+        var json = HighscorePersistence.Serialize(modes, options: JsonWriteOptions);
         File.WriteAllText(_highScoresPath, json);
     }
 
@@ -1597,17 +1667,14 @@ public partial class MainWindow : Window
         try
         {
             var json = File.ReadAllText(_settingsPath);
-            var settings = JsonSerializer.Deserialize<GameSettings>(json);
-            if (settings is null)
-            {
-                return;
-            }
+            var settings = SettingsPersistence.DeserializeOrDefault(json, CreateDefaultSettings());
 
             _isLoadingSettings = true;
             NickTextBox.Text = string.IsNullOrWhiteSpace(settings.Nick) ? "Gracz" : settings.Nick;
             StartLevelComboBox.SelectedIndex = Math.Clamp(settings.StartLevelIndex, 0, 2);
             GameModeComboBox.SelectedIndex = Math.Clamp(settings.GameModeIndex, 0, 4);
             ThemeComboBox.SelectedIndex = Math.Clamp(settings.ThemeIndex, 0, 2);
+            ColorblindModeCheckBox.IsChecked = settings.ColorblindMode;
             MusicVolumeSlider.Value = Math.Clamp(settings.MusicVolume, 0, 1);
             EffectsVolumeSlider.Value = Math.Clamp(settings.EffectsVolume, 0, 1);
             _dasMs = Math.Clamp(settings.DasMs, 0, 500);
@@ -1618,6 +1685,7 @@ public partial class MainWindow : Window
             _rotateKey = ParseKey(settings.RotateKey, Key.Up);
             _hardDropKey = ParseKey(settings.HardDropKey, Key.Space);
             _holdKey = ParseKey(settings.HoldKey, Key.C);
+            _colorblindMode = settings.ColorblindMode;
             ApplyControlSettingsToUi();
         }
         catch
@@ -1642,6 +1710,8 @@ public partial class MainWindow : Window
         _holdKey = ParseKey(HoldKeyTextBox.Text, _holdKey);
         ApplyControlSettingsToUi();
 
+        _colorblindMode = ColorblindModeCheckBox.IsChecked == true;
+
         var settings = new GameSettings(
             NickTextBox.Text.Trim(),
             StartLevelComboBox.SelectedIndex,
@@ -1656,9 +1726,10 @@ public partial class MainWindow : Window
             _softDropKey.ToString(),
             _rotateKey.ToString(),
             _hardDropKey.ToString(),
-            _holdKey.ToString());
+            _holdKey.ToString(),
+            _colorblindMode);
 
-        var json = JsonSerializer.Serialize(settings, JsonWriteOptions);
+        var json = SettingsPersistence.Serialize(settings, JsonWriteOptions);
         File.WriteAllText(_settingsPath, json);
     }
 
@@ -2328,6 +2399,48 @@ public partial class MainWindow : Window
         ResetAdManagerUi();
     }
 
+    private static GameSettings CreateDefaultSettings()
+    {
+        return new GameSettings(
+            "Gracz",
+            0,
+            0,
+            0,
+            0.6,
+            0.8,
+            140,
+            45,
+            "Left",
+            "Right",
+            "Down",
+            "Up",
+            "Space",
+            "C",
+            false);
+    }
+
+    private void ThemeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isLoadingSettings)
+        {
+            return;
+        }
+
+        ApplyTheme();
+        SaveSettings();
+    }
+
+    private void ColorblindModeCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_isLoadingSettings)
+        {
+            return;
+        }
+
+        ApplyTheme();
+        SaveSettings();
+    }
+
     private void StartButton_Click(object sender, RoutedEventArgs e)
     {
         PlayEffect("buttonClick");
@@ -2352,8 +2465,6 @@ public partial class MainWindow : Window
     }
 
     private record ScoreEntry(string Name, int Points);
-    private record HighscoreStore(Dictionary<string, List<ScoreEntry>> Modes);
-
     private enum GameMode
     {
         Classic = 0,

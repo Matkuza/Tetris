@@ -352,6 +352,7 @@
                                 <TextBlock Text="Tryb kolorów" Foreground="#CBD5E1" FontSize="18" />
                                 <ComboBox x:Name="ThemeComboBox"
                                           SelectedIndex="0"
+                                          SelectionChanged="ThemeComboBox_SelectionChanged"
                                           Margin="0,8,0,16"
                                           Padding="8"
                                           FontSize="18"
@@ -362,6 +363,14 @@
                                     <ComboBoxItem Content="Sunset Retro" />
                                     <ComboBoxItem Content="Fade Glow" />
                                 </ComboBox>
+
+                                <CheckBox x:Name="ColorblindModeCheckBox"
+                                          Content="Tryb daltonistyczny (kolor + ikony)"
+                                          Margin="0,0,0,16"
+                                          Foreground="#E2E8F0"
+                                          FontSize="16"
+                                          Checked="ColorblindModeCheckBox_Changed"
+                                          Unchecked="ColorblindModeCheckBox_Changed" />
 
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
                                     <Button Content="Wyjdź"

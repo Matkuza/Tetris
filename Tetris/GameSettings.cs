@@ -14,4 +14,5 @@ internal record GameSettings(
     string SoftDropKey,
     string RotateKey,
     string HardDropKey,
-    string HoldKey);
+    string HoldKey,
+    bool ColorblindMode);

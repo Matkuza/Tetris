@@ -130,7 +130,8 @@ public class GameEngineTests
             "S",
             "W",
             "Space",
-            "LeftShift");
+            "LeftShift",
+            true);
 
         var json = JsonSerializer.Serialize(settings);
         var roundtrip = JsonSerializer.Deserialize<GameSettings>(json);
@@ -140,4 +141,31 @@ public class GameEngineTests
         Assert.Equal(150, roundtrip.DasMs);
         Assert.Equal(35, roundtrip.ArrMs);
     }
+    [Fact]
+    public void DrawNextPieceIndex_ThrowsWhenPieceCountIsInvalid()
+    {
+        var engine = new GameEngine(10, 20);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => engine.DrawNextPieceIndex(0));
+    }
+
+    [Fact]
+    public void IsGameOverOnSpawn_ReturnsFalseWhenSpawnIsFree()
+    {
+        var engine = new GameEngine(10, 20);
+        var piece = CreateIPiece();
+
+        var blocked = engine.IsGameOverOnSpawn(3, 0, piece.Cells);
+
+        Assert.False(blocked);
+    }
+
+    [Fact]
+    public void CalculateScoreForClearedLines_FallsBackForFiveLines()
+    {
+        var score = GameEngine.CalculateScoreForClearedLines(5);
+
+        Assert.Equal(1250, score);
+    }
+
 }
