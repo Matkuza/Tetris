@@ -369,6 +369,7 @@
                                                                           Margin="10,2,6,2"
                                                                           VerticalAlignment="Center"
                                                                           HorizontalAlignment="Left"
+                                                                          IsHitTestVisible="False"
                                                                           Content="{TemplateBinding SelectionBoxItem}"
                                                                           ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
                                                                           ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"
@@ -378,7 +379,21 @@
                                                                    Foreground="#BFDBFE"
                                                                    HorizontalAlignment="Center"
                                                                    VerticalAlignment="Center"
-                                                                   FontSize="12" />
+                                                                   FontSize="12"
+                                                                   IsHitTestVisible="False" />
+                                                        <ToggleButton x:Name="DropDownToggle"
+                                                                      Grid.ColumnSpan="2"
+                                                                      Background="Transparent"
+                                                                      BorderThickness="0"
+                                                                      Focusable="False"
+                                                                      ClickMode="Press"
+                                                                      IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
+                                                            <ToggleButton.Template>
+                                                                <ControlTemplate TargetType="ToggleButton">
+                                                                    <Border Background="Transparent" />
+                                                                </ControlTemplate>
+                                                            </ToggleButton.Template>
+                                                        </ToggleButton>
                                                     </Grid>
                                                 </Border>
                                                 <Popup x:Name="PART_Popup"
