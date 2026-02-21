@@ -731,7 +731,7 @@ public partial class MainWindow : Window
 
     private Tetromino CreateRandomPiece()
     {
-        var index = _random.Next(PieceDefinitions.Length);
+        var index = _engine.DrawNextPieceIndex(PieceDefinitions.Length);
         var shape = PieceDefinitions[index].Select(p => new Point(p.X, p.Y)).ToArray();
         return new Tetromino(shape, _activePaletteBrushes[index], index == 3);
     }
@@ -934,11 +934,7 @@ public partial class MainWindow : Window
 
     private void DrawGhostPiece()
     {
-        var ghostY = _currentY;
-        while (IsPositionValid(_currentX, ghostY + 1, _currentPiece.Cells))
-        {
-            ghostY++;
-        }
+        var ghostY = _engine.CalculateGhostY();
 
         if (ghostY == _currentY)
         {

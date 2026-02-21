@@ -3,8 +3,11 @@ using System.Windows.Media;
 
 namespace Tetris;
 
-internal sealed class GameEngine(int boardWidth, int boardHeight)
+internal sealed class GameEngine(int boardWidth, int boardHeight, Random? random = null)
 {
+    private readonly Random _random = random ?? new Random();
+    private readonly Queue<int> _pieceBag = new();
+
     public Brush?[,] Board { get; } = new Brush?[boardHeight, boardWidth];
 
     public Tetromino CurrentPiece { get; set; } = null!;
@@ -14,6 +17,32 @@ internal sealed class GameEngine(int boardWidth, int boardHeight)
     public int LockResetsUsed { get; set; }
 
     public void ResetBoard() => Array.Clear(Board);
+
+    public int DrawNextPieceIndex(int pieceCount)
+    {
+        if (pieceCount <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(pieceCount));
+        }
+
+        if (_pieceBag.Count == 0)
+        {
+            RefillBag(pieceCount);
+        }
+
+        return _pieceBag.Dequeue();
+    }
+
+    public int CalculateGhostY()
+    {
+        var ghostY = CurrentY;
+        while (IsPositionValid(CurrentX, ghostY + 1, CurrentPiece.Cells))
+        {
+            ghostY++;
+        }
+
+        return ghostY;
+    }
 
     public bool TryMove(int newX, int newY, Point[] cells)
     {
@@ -156,5 +185,20 @@ internal sealed class GameEngine(int boardWidth, int boardHeight)
         }
 
         return removedRows;
+    }
+
+    private void RefillBag(int pieceCount)
+    {
+        var nextBag = Enumerable.Range(0, pieceCount).ToArray();
+        for (var i = nextBag.Length - 1; i > 0; i--)
+        {
+            var j = _random.Next(i + 1);
+            (nextBag[i], nextBag[j]) = (nextBag[j], nextBag[i]);
+        }
+
+        foreach (var pieceIndex in nextBag)
+        {
+            _pieceBag.Enqueue(pieceIndex);
+        }
     }
 }
