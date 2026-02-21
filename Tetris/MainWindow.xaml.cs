@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using IOPath = System.IO.Path;
 using System.Text.Json;
+using System.Text;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
@@ -36,6 +37,8 @@ public partial class MainWindow : Window
     private readonly string _adManifestPath;
     private readonly string _settingsPath;
     private readonly string _highScoresPath;
+    private readonly string _sessionHistoryPath;
+    private readonly string _onboardingPath;
 
     private static readonly JsonSerializerOptions JsonWriteOptions = new() { WriteIndented = true };
     private const int MinAdSeconds = 2;
@@ -68,6 +71,19 @@ public partial class MainWindow : Window
 
     private readonly MediaPlayer _backgroundMusicPlayer = new();
     private readonly Dictionary<string, Uri> _soundUris;
+    private readonly List<SessionHistoryEntry> _sessionHistory = [];
+    private OnboardingState _onboardingState = new(false, string.Empty);
+    private int _tutorialStepIndex;
+    private const string CurrentWhatsNewVersion = "1.1.0";
+    private const string WhatsNewMessage = "• Dodano Marathon i statystyki sesji.\n• Dodano tryb daltonistyczny i wzory/ikony klocków.\n• Poprawiono układ paneli po prawej stronie.";
+    private static readonly string[] TutorialSteps =
+    [
+        "1/4 Ruch: ←/→ przesuwają klocek, ↑ obraca, Spacja robi hard drop.",
+        "2/4 Hold: klawisz C odkłada klocek do HOLD i zamienia go później.",
+        "3/4 Tryby: Sprint (40 linii), Ultra (120s), Marathon i Survival mają osobne rankingi.",
+        "4/4 Ustawienia: możesz zmienić klawisze, DAS/ARR i włączyć tryb daltonistyczny."
+    ];
+
     private readonly Dictionary<string, MediaPlayer> _effectPlayers = new();
 
     private double _effectsVolume = 0.8;
@@ -193,6 +209,8 @@ public partial class MainWindow : Window
         _adManifestPath = IOPath.Combine(_adStorageFolder, "ads.json");
         _settingsPath = IOPath.Combine(_adStorageFolder, "settings.json");
         _highScoresPath = IOPath.Combine(_adStorageFolder, "highscores.json");
+        _sessionHistoryPath = IOPath.Combine(_adStorageFolder, "session-history.json");
+        _onboardingPath = IOPath.Combine(_adStorageFolder, "onboarding.json");
         _soundUris = CreateSoundUriMap();
         InitializeEffectPlayers();
         _backgroundMusicPlayer.MediaEnded += (_, _) =>
@@ -209,7 +227,9 @@ public partial class MainWindow : Window
         EnsureAdStorage();
         LoadAds();
         LoadHighScores();
+        LoadSessionHistory();
         LoadSettings();
+        LoadOnboardingState();
         ApplyLoadedGlobalSettingsToUi();
         ApplyControlSettingsToUi();
         ApplyTheme();
@@ -218,6 +238,8 @@ public partial class MainWindow : Window
         RotateAds();
         _adTimer.Start();
         _isLoadingSettings = false;
+        DrawTrendChart();
+        ShowOnboardingIfNeeded();
     }
 
     private Dictionary<string, Uri> CreateSoundUriMap()
@@ -740,6 +762,7 @@ public partial class MainWindow : Window
             PlayEffect("defeat");
         }
 
+        CaptureSessionResult();
         RegisterScore();
         GameOverOverlay.Visibility = Visibility.Visible;
         StatusText.Text = statusText;
@@ -1085,6 +1108,7 @@ public partial class MainWindow : Window
         };
         ModeTimerText.Text = timerText;
         SessionStatsText.Text = $"APM: {apm:0.0} • PPS: {pps:0.00} • Lock: {averageLockDelay}ms • Tetris: {_tetrisLineClears}";
+        DrawTrendChart();
 
         if (!_gameOver)
         {
@@ -2441,6 +2465,236 @@ public partial class MainWindow : Window
         SaveSettings();
     }
 
+    private void LoadSessionHistory()
+    {
+        _sessionHistory.Clear();
+        if (!File.Exists(_sessionHistoryPath))
+        {
+            return;
+        }
+
+        try
+        {
+            var json = File.ReadAllText(_sessionHistoryPath);
+            var data = JsonSerializer.Deserialize<List<SessionHistoryEntry>>(json) ?? [];
+            _sessionHistory.AddRange(data.OrderBy(e => e.PlayedAtUtc).TakeLast(200));
+        }
+        catch
+        {
+            _sessionHistory.Clear();
+        }
+    }
+
+    private void SaveSessionHistory()
+    {
+        var json = JsonSerializer.Serialize(_sessionHistory.TakeLast(200), JsonWriteOptions);
+        File.WriteAllText(_sessionHistoryPath, json);
+    }
+
+    private void CaptureSessionResult()
+    {
+        var seconds = Math.Max(1d, _sessionStopwatch.Elapsed.TotalSeconds);
+        var entry = new SessionHistoryEntry(
+            DateTime.UtcNow,
+            _activeGameMode.ToString(),
+            _score,
+            _playerActions * 60d / seconds,
+            _piecesLocked / seconds,
+            _lockSamples == 0 ? 0 : (double)_totalLockDelayMs / _lockSamples,
+            _linesCleared);
+
+        _sessionHistory.Add(entry);
+        if (_sessionHistory.Count > 200)
+        {
+            _sessionHistory.RemoveRange(0, _sessionHistory.Count - 200);
+        }
+
+        SaveSessionHistory();
+    }
+
+    private void DrawTrendChart()
+    {
+        if (TrendChartCanvas is null)
+        {
+            return;
+        }
+
+        TrendChartCanvas.Children.Clear();
+        var points = _sessionHistory.TakeLast(20).ToList();
+        if (points.Count < 2)
+        {
+            return;
+        }
+
+        var width = TrendChartCanvas.Width;
+        var height = TrendChartCanvas.Height;
+        var pad = 6d;
+
+        double maxScore = Math.Max(1, points.Max(p => p.Score));
+        double maxPps = Math.Max(0.01, points.Max(p => p.Pps));
+        double maxApm = Math.Max(1, points.Max(p => p.Apm));
+
+        var scoreLine = new Polyline { Stroke = Brushes.Gold, StrokeThickness = 2, Opacity = 0.9 };
+        var ppsLine = new Polyline { Stroke = Brushes.LightSkyBlue, StrokeThickness = 1.6, Opacity = 0.85 };
+        var apmLine = new Polyline { Stroke = Brushes.LightGreen, StrokeThickness = 1.6, Opacity = 0.85 };
+
+        for (var i = 0; i < points.Count; i++)
+        {
+            var x = pad + (width - 2 * pad) * i / Math.Max(1, points.Count - 1);
+            scoreLine.Points.Add(new Point(x, pad + (height - 2 * pad) * (1 - points[i].Score / maxScore)));
+            ppsLine.Points.Add(new Point(x, pad + (height - 2 * pad) * (1 - points[i].Pps / maxPps)));
+            apmLine.Points.Add(new Point(x, pad + (height - 2 * pad) * (1 - points[i].Apm / maxApm)));
+        }
+
+        TrendChartCanvas.Children.Add(scoreLine);
+        TrendChartCanvas.Children.Add(ppsLine);
+        TrendChartCanvas.Children.Add(apmLine);
+    }
+
+    private void ExportStatsCsvButton_Click(object sender, RoutedEventArgs e)
+    {
+        var save = new SaveFileDialog
+        {
+            Filter = "CSV (*.csv)|*.csv",
+            FileName = $"tetris-session-stats-{DateTime.Now:yyyyMMdd-HHmm}.csv"
+        };
+
+        if (save.ShowDialog() != true)
+        {
+            return;
+        }
+
+        var sb = new StringBuilder();
+        sb.AppendLine("PlayedAtUtc,Mode,Score,Apm,Pps,AvgLockDelayMs,LinesCleared");
+        foreach (var e1 in _sessionHistory)
+        {
+            sb.AppendLine($"{e1.PlayedAtUtc:O},{e1.Mode},{e1.Score},{e1.Apm:0.##},{e1.Pps:0.###},{e1.AvgLockDelayMs:0.##},{e1.LinesCleared}");
+        }
+
+        File.WriteAllText(save.FileName, sb.ToString());
+        ExportStatusText.Text = $"✅ Zapisano CSV: {save.FileName}";
+    }
+
+    private void ExportStatsJsonButton_Click(object sender, RoutedEventArgs e)
+    {
+        var save = new SaveFileDialog
+        {
+            Filter = "JSON (*.json)|*.json",
+            FileName = $"tetris-session-stats-{DateTime.Now:yyyyMMdd-HHmm}.json"
+        };
+
+        if (save.ShowDialog() != true)
+        {
+            return;
+        }
+
+        var json = JsonSerializer.Serialize(_sessionHistory, JsonWriteOptions);
+        File.WriteAllText(save.FileName, json);
+        ExportStatusText.Text = $"✅ Zapisano JSON: {save.FileName}";
+    }
+
+    private void ExportHighscoresCsvButton_Click(object sender, RoutedEventArgs e)
+    {
+        var save = new SaveFileDialog
+        {
+            Filter = "CSV (*.csv)|*.csv",
+            FileName = $"tetris-highscores-{DateTime.Now:yyyyMMdd-HHmm}.csv"
+        };
+
+        if (save.ShowDialog() != true)
+        {
+            return;
+        }
+
+        var sb = new StringBuilder();
+        sb.AppendLine("Mode,Rank,Name,Points");
+        foreach (var mode in Enum.GetValues<GameMode>())
+        {
+            var rows = GetHighScoresForMode(mode);
+            for (var i = 0; i < rows.Count; i++)
+            {
+                sb.AppendLine($"{mode},{i + 1},{rows[i].Name},{rows[i].Points}");
+            }
+        }
+
+        File.WriteAllText(save.FileName, sb.ToString());
+        ExportStatusText.Text = $"✅ Zapisano rekordy CSV: {save.FileName}";
+    }
+
+    private void LoadOnboardingState()
+    {
+        if (!File.Exists(_onboardingPath))
+        {
+            _onboardingState = new OnboardingState(false, string.Empty);
+            return;
+        }
+
+        try
+        {
+            var json = File.ReadAllText(_onboardingPath);
+            _onboardingState = JsonSerializer.Deserialize<OnboardingState>(json) ?? new OnboardingState(false, string.Empty);
+        }
+        catch
+        {
+            _onboardingState = new OnboardingState(false, string.Empty);
+        }
+    }
+
+    private void SaveOnboardingState()
+    {
+        var json = JsonSerializer.Serialize(_onboardingState, JsonWriteOptions);
+        File.WriteAllText(_onboardingPath, json);
+    }
+
+    private void ShowOnboardingIfNeeded()
+    {
+        if (!_onboardingState.TutorialCompleted)
+        {
+            _tutorialStepIndex = 0;
+            TutorialStepText.Text = TutorialSteps[_tutorialStepIndex];
+            TutorialNextButton.Content = "Dalej";
+            TutorialOverlay.Visibility = Visibility.Visible;
+            return;
+        }
+
+        if (!string.Equals(_onboardingState.LastSeenWhatsNewVersion, CurrentWhatsNewVersion, StringComparison.Ordinal))
+        {
+            WhatsNewText.Text = WhatsNewMessage;
+            WhatsNewOverlay.Visibility = Visibility.Visible;
+        }
+    }
+
+    private void TutorialNextButton_Click(object sender, RoutedEventArgs e)
+    {
+        _tutorialStepIndex++;
+        if (_tutorialStepIndex >= TutorialSteps.Length)
+        {
+            TutorialOverlay.Visibility = Visibility.Collapsed;
+            _onboardingState = _onboardingState with { TutorialCompleted = true };
+            SaveOnboardingState();
+            ShowOnboardingIfNeeded();
+            return;
+        }
+
+        TutorialStepText.Text = TutorialSteps[_tutorialStepIndex];
+        TutorialNextButton.Content = _tutorialStepIndex == TutorialSteps.Length - 1 ? "Zakończ" : "Dalej";
+    }
+
+    private void SkipTutorialButton_Click(object sender, RoutedEventArgs e)
+    {
+        TutorialOverlay.Visibility = Visibility.Collapsed;
+        _onboardingState = _onboardingState with { TutorialCompleted = true };
+        SaveOnboardingState();
+        ShowOnboardingIfNeeded();
+    }
+
+    private void CloseWhatsNewButton_Click(object sender, RoutedEventArgs e)
+    {
+        WhatsNewOverlay.Visibility = Visibility.Collapsed;
+        _onboardingState = _onboardingState with { LastSeenWhatsNewVersion = CurrentWhatsNewVersion };
+        SaveOnboardingState();
+    }
+
     private void StartButton_Click(object sender, RoutedEventArgs e)
     {
         PlayEffect("buttonClick");
@@ -2465,6 +2719,8 @@ public partial class MainWindow : Window
     }
 
     private record ScoreEntry(string Name, int Points);
+    private record SessionHistoryEntry(DateTime PlayedAtUtc, string Mode, int Score, double Apm, double Pps, double AvgLockDelayMs, int LinesCleared);
+    private record OnboardingState(bool TutorialCompleted, string LastSeenWhatsNewVersion);
     private enum GameMode
     {
         Classic = 0,

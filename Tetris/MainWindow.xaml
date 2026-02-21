@@ -192,6 +192,8 @@
                 <StackPanel>
                     <TextBlock Text="STATYSTYKI SESJI" Foreground="#94A3B8" FontSize="13" Margin="0,0,0,6" />
                     <TextBlock x:Name="SessionStatsText" Text="APM: 0 • PPS: 0.00 • Lock: 0ms • Tetris: 0" Foreground="#F8FAFC" FontSize="14" TextWrapping="Wrap" />
+                    <TextBlock Text="TREND (20 gier)" Foreground="#94A3B8" FontSize="11" Margin="0,8,0,4" />
+                    <Canvas x:Name="TrendChartCanvas" Width="250" Height="74" HorizontalAlignment="Center" />
                 </StackPanel>
             </Border>
 
@@ -509,9 +511,9 @@
                                 <Border CornerRadius="10" BorderBrush="#3C577C" BorderThickness="1" Background="#132647" Padding="12" Margin="0,0,0,12">
                                     <StackPanel>
                                         <TextBlock Text="DAS (ms)" Foreground="#E2E8F0" FontSize="17" Margin="0,0,0,4" />
-                                        <TextBox x:Name="DasTextBox" Text="140" Padding="8" Background="#0A162C" Foreground="#F8FAFC" BorderBrush="#3C577C" />
+                                        <TextBox x:Name="DasTextBox" Text="140" Padding="8" Background="#0A162C" Foreground="#F8FAFC" BorderBrush="#3C577C" ToolTip="DAS: opóźnienie auto-przesuwu po przytrzymaniu (ms)." />
                                         <TextBlock Text="ARR (ms)" Foreground="#E2E8F0" FontSize="17" Margin="0,8,0,4" />
-                                        <TextBox x:Name="ArrTextBox" Text="45" Padding="8" Background="#0A162C" Foreground="#F8FAFC" BorderBrush="#3C577C" />
+                                        <TextBox x:Name="ArrTextBox" Text="45" Padding="8" Background="#0A162C" Foreground="#F8FAFC" BorderBrush="#3C577C" ToolTip="ARR: szybkość powtarzania przesuwu po DAS (ms)." />
                                     </StackPanel>
                                 </Border>
 
@@ -531,7 +533,7 @@
                                         </Grid.RowDefinitions>
 
                                         <TextBlock Grid.Row="0" Text="Ruch w lewo" Foreground="#E2E8F0" FontSize="16" Margin="0,0,0,6" />
-                                        <TextBox x:Name="MoveLeftKeyTextBox" Grid.Row="0" Grid.Column="1" Text="Left" Margin="8,0,0,6" Padding="6" Background="#0A162C" Foreground="#F8FAFC" BorderBrush="#3C577C" />
+                                        <TextBox x:Name="MoveLeftKeyTextBox" Grid.Row="0" Grid.Column="1" Text="Left" Margin="8,0,0,6" Padding="6" Background="#0A162C" Foreground="#F8FAFC" BorderBrush="#3C577C" ToolTip="Klawisz ruchu w lewo." />
 
                                         <TextBlock Grid.Row="1" Text="Ruch w prawo" Foreground="#E2E8F0" FontSize="16" Margin="0,0,0,6" />
                                         <TextBox x:Name="MoveRightKeyTextBox" Grid.Row="1" Grid.Column="1" Text="Right" Margin="8,0,0,6" Padding="6" Background="#0A162C" Foreground="#F8FAFC" BorderBrush="#3C577C" />
@@ -548,6 +550,18 @@
                                         <TextBlock Grid.Row="5" Text="Hold" Foreground="#E2E8F0" FontSize="16" />
                                         <TextBox x:Name="HoldKeyTextBox" Grid.Row="5" Grid.Column="1" Text="C" Margin="8,0,0,0" Padding="6" Background="#0A162C" Foreground="#F8FAFC" BorderBrush="#3C577C" />
                                     </Grid>
+                                </Border>
+
+                                <Border CornerRadius="10" BorderBrush="#3C577C" BorderThickness="1" Background="#132647" Padding="12" Margin="0,0,0,12">
+                                    <StackPanel>
+                                        <TextBlock Text="Statystyki i progres" Foreground="#D7E4F6" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8" />
+                                        <WrapPanel>
+                                            <Button Content="Eksport statystyk CSV" Click="ExportStatsCsvButton_Click" Padding="12,8" Margin="0,0,8,8" ToolTip="Eksport ostatnich sesji do CSV." />
+                                            <Button Content="Eksport statystyk JSON" Click="ExportStatsJsonButton_Click" Padding="12,8" Margin="0,0,8,8" ToolTip="Eksport ostatnich sesji do JSON." />
+                                            <Button Content="Eksport rekordów CSV" Click="ExportHighscoresCsvButton_Click" Padding="12,8" Margin="0,0,8,8" ToolTip="Eksport rankingów per tryb do CSV." />
+                                        </WrapPanel>
+                                        <TextBlock x:Name="ExportStatusText" Foreground="#93C5FD" FontSize="13" TextWrapping="Wrap" />
+                                    </StackPanel>
                                 </Border>
 
                                 <Button Content="Opcje reklam (hasło)"
@@ -720,6 +734,29 @@
                         </ScrollViewer>
                     </Grid>
                 </Grid>
+            </Border>
+
+            <Border x:Name="TutorialOverlay" Grid.RowSpan="3" Panel.ZIndex="30" Background="#B30A1224" Visibility="Collapsed">
+                <Border HorizontalAlignment="Center" VerticalAlignment="Center" Width="780" CornerRadius="16" BorderBrush="#4A648A" BorderThickness="2" Background="#0F1C34" Padding="20">
+                    <StackPanel>
+                        <TextBlock Text="Szybki tutorial" Foreground="#E2E8F0" FontSize="34" FontWeight="Bold" />
+                        <TextBlock x:Name="TutorialStepText" Margin="0,12,0,16" Foreground="#CBD5E1" FontSize="20" TextWrapping="Wrap" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button Content="Pomiń" Click="SkipTutorialButton_Click" Padding="14,8" Margin="0,0,8,0"/>
+                            <Button x:Name="TutorialNextButton" Content="Dalej" Click="TutorialNextButton_Click" Padding="18,8"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Border>
+
+            <Border x:Name="WhatsNewOverlay" Grid.RowSpan="3" Panel.ZIndex="29" Background="#990A1224" Visibility="Collapsed">
+                <Border HorizontalAlignment="Center" VerticalAlignment="Center" Width="760" CornerRadius="16" BorderBrush="#4A648A" BorderThickness="2" Background="#0F1C34" Padding="20">
+                    <StackPanel>
+                        <TextBlock Text="Co nowego" Foreground="#E2E8F0" FontSize="34" FontWeight="Bold" />
+                        <TextBlock x:Name="WhatsNewText" Margin="0,12,0,16" Foreground="#CBD5E1" FontSize="18" TextWrapping="Wrap" />
+                        <Button Content="OK" Click="CloseWhatsNewButton_Click" Padding="18,8" HorizontalAlignment="Right"/>
+                    </StackPanel>
+                </Border>
             </Border>
 
             <TextBlock Grid.Row="2"
