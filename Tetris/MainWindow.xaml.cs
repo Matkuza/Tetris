@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.IO;
 using IOPath = System.IO.Path;
 using System.Text.Json;
@@ -58,7 +59,7 @@ public partial class MainWindow : Window
     private GameMode _activeGameMode = GameMode.Classic;
     private GameMode _selectedHighscoreMode = GameMode.Classic;
     private int _survivalTickCounter;
-    private int _ultraElapsedMs;
+    private readonly Stopwatch _ultraStopwatch = new();
     private double _cellSize = 36;
     private bool _isFadeThemeActive;
     private bool _isHighscoreUnlocked;
@@ -491,7 +492,11 @@ public partial class MainWindow : Window
         _activeGameMode = (GameMode)Math.Clamp(GameModeComboBox.SelectedIndex, 0, 3);
         _selectedHighscoreMode = _activeGameMode;
         HighscoreModeComboBox.SelectedIndex = (int)_selectedHighscoreMode;
-        _ultraElapsedMs = 0;
+        _ultraStopwatch.Reset();
+        if (_activeGameMode == GameMode.Ultra)
+        {
+            _ultraStopwatch.Start();
+        }
 
         var nick = NickTextBox.Text.Trim();
         PlayerNameText.Text = string.IsNullOrWhiteSpace(nick) ? "Gracz" : nick;
@@ -565,8 +570,8 @@ public partial class MainWindow : Window
 
         if (_activeGameMode == GameMode.Ultra)
         {
-            _ultraElapsedMs += (int)_timer.Interval.TotalMilliseconds;
-            if (_ultraElapsedMs >= 120000)
+            var ultraElapsedMs = (int)_ultraStopwatch.ElapsedMilliseconds;
+            if (ultraElapsedMs >= 120000)
             {
                 FinishGame("ULTRA ZAKOŃCZONE • Spacja: menu start • Esc: zamknij");
                 return;
@@ -607,6 +612,7 @@ public partial class MainWindow : Window
 
         _gameOver = true;
         _timer.Stop();
+        _ultraStopwatch.Stop();
         StopBackgroundMusic();
         if (playDefeatSound)
         {
@@ -932,10 +938,11 @@ public partial class MainWindow : Window
         BestScoreText.Text = $"BEST: {best}";
         LevelText.Text = level.ToString();
 
+        var ultraElapsedSeconds = (int)_ultraStopwatch.Elapsed.TotalSeconds;
         var timerText = _activeGameMode switch
         {
             GameMode.Sprint => $"{Math.Max(0, 40 - _linesCleared)} linii",
-            GameMode.Ultra => TimeSpan.FromSeconds(Math.Max(0, 120 - (_ultraElapsedMs / 1000))).ToString(@"mm\:ss"),
+            GameMode.Ultra => TimeSpan.FromSeconds(Math.Max(0, 120 - ultraElapsedSeconds)).ToString(@"mm\:ss"),
             _ => "--:--"
         };
         ModeTimerText.Text = timerText;
@@ -1160,11 +1167,21 @@ public partial class MainWindow : Window
         if (_isPaused)
         {
             _timer.Stop();
+            if (_activeGameMode == GameMode.Ultra)
+            {
+                _ultraStopwatch.Stop();
+            }
+
             StopBackgroundMusic();
         }
         else
         {
             _timer.Start();
+            if (_activeGameMode == GameMode.Ultra)
+            {
+                _ultraStopwatch.Start();
+            }
+
             PlayBackgroundMusic();
         }
 
