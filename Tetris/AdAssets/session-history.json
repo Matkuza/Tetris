@@ -1,0 +1,47 @@
+[
+  {
+    "PlayedAtUtc": "2026-02-22T00:20:10.7955445Z",
+    "Mode": "Classic",
+    "Score": 2860,
+    "Apm": 157.95826627230522,
+    "Pps": 0.4300324646191576,
+    "AvgLockDelayMs": 698.8,
+    "LinesCleared": 19
+  },
+  {
+    "PlayedAtUtc": "2026-02-22T00:29:26.8047593Z",
+    "Mode": "Marathon",
+    "Score": 4400,
+    "Apm": 155.94217201668064,
+    "Pps": 0.4578838943442804,
+    "AvgLockDelayMs": 0,
+    "LinesCleared": 28
+  },
+  {
+    "PlayedAtUtc": "2026-02-23T07:41:45.0869251Z",
+    "Mode": "Marathon",
+    "Score": 1800,
+    "Apm": 187.63305865143903,
+    "Pps": 0.46301037935832445,
+    "AvgLockDelayMs": 54,
+    "LinesCleared": 13
+  },
+  {
+    "PlayedAtUtc": "2026-02-23T07:43:15.7266843Z",
+    "Mode": "Marathon",
+    "Score": 2900,
+    "Apm": 205.53358131857652,
+    "Pps": 0.5551769150559251,
+    "AvgLockDelayMs": 104,
+    "LinesCleared": 11
+  },
+  {
+    "PlayedAtUtc": "2026-02-23T23:03:01.1356074Z",
+    "Mode": "Marathon",
+    "Score": 3080,
+    "Apm": 161.27304013239808,
+    "Pps": 0.3825638968020533,
+    "AvgLockDelayMs": 0,
+    "LinesCleared": 18
+  }
+]

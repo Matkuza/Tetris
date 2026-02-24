@@ -9,6 +9,7 @@
         WindowStyle="None"
         Background="#050816"
         KeyDown="Window_KeyDown"
+        KeyUp="Window_KeyUp"
         SizeChanged="Window_SizeChanged">
     <Grid x:Name="RootGrid" Margin="14">
         <Grid.ColumnDefinitions>
@@ -154,45 +155,76 @@
             <TextBlock x:Name="TitleText"
                        Text="TETRIS"
                        Foreground="#E2E8F0"
-                       FontSize="56"
+                       FontSize="52"
                        FontWeight="Bold"
-                       Margin="0,0,0,12" />
+                       Margin="0,0,0,10" />
 
-            <Border x:Name="NickCard" CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="16" Margin="0,0,0,12">
+            <Border x:Name="NickCard" CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="14" Margin="0,0,0,10">
                 <StackPanel>
                     <TextBlock Text="NICK" Foreground="#94A3B8" FontSize="13" />
-                    <TextBlock x:Name="PlayerNameText" Text="Gracz" Foreground="#F8FAFC" FontSize="26" FontWeight="SemiBold" />
+                    <TextBlock x:Name="PlayerNameText" Text="Gracz" Foreground="#F8FAFC" FontSize="24" FontWeight="SemiBold" />
                 </StackPanel>
             </Border>
 
-            <Border x:Name="ScoreCard" CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="16" Margin="0,0,0,12">
+            <Border x:Name="ScoreCard" CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="14" Margin="0,0,0,10">
                 <StackPanel>
                     <TextBlock Text="WYNIK" Foreground="#94A3B8" FontSize="13" />
-                    <TextBlock x:Name="ScoreText" Text="0" Foreground="#F8FAFC" FontSize="32" FontWeight="SemiBold" />
-                    <TextBlock x:Name="BestScoreText" Text="BEST: 0" Foreground="#94A3B8" FontSize="15" Margin="0,4,0,0" />
+                    <TextBlock x:Name="ScoreText" Text="0" Foreground="#F8FAFC" FontSize="30" FontWeight="SemiBold" />
+                    <TextBlock x:Name="BestScoreText" Text="BEST: 0" Foreground="#94A3B8" FontSize="14" Margin="0,3,0,0" />
                 </StackPanel>
             </Border>
 
-            <Border x:Name="LevelCard" CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="16" Margin="0,0,0,12">
+            <Border x:Name="LevelCard" CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="14" Margin="0,0,0,10">
                 <StackPanel>
                     <TextBlock Text="POZIOM" Foreground="#94A3B8" FontSize="13" />
-                    <TextBlock x:Name="LevelText" Text="1" Foreground="#F8FAFC" FontSize="30" FontWeight="SemiBold" />
+                    <TextBlock x:Name="LevelText" Text="1" Foreground="#F8FAFC" FontSize="28" FontWeight="SemiBold" />
                 </StackPanel>
             </Border>
 
-            <Border x:Name="NextCard" CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="16" Margin="0,0,0,12">
+            <Border x:Name="TimerCard" CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="14" Margin="0,0,0,10">
                 <StackPanel>
-                    <TextBlock Text="NASTĘPNY KLOCEK" Foreground="#94A3B8" FontSize="13" Margin="0,0,0,8" />
-                    <Canvas x:Name="NextPieceCanvas" Width="130" Height="120" />
+                    <TextBlock Text="TIMER" Foreground="#94A3B8" FontSize="13" />
+                    <TextBlock x:Name="ModeTimerText" Text="--:--" Foreground="#F8FAFC" FontSize="28" FontWeight="SemiBold" />
                 </StackPanel>
             </Border>
 
-            <Border x:Name="StatusCard" CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="14">
+            <Border x:Name="SessionStatsCard" CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="14" Margin="0,0,0,10">
+                <StackPanel>
+                    <TextBlock Text="STATYSTYKI SESJI" Foreground="#94A3B8" FontSize="13" Margin="0,0,0,6" />
+                    <TextBlock x:Name="SessionStatsText" Text="APM: 0 • PPS: 0.00 • Lock: 0ms • Tetris: 0" Foreground="#F8FAFC" FontSize="14" TextWrapping="Wrap" />
+                    <TextBlock Text="TREND (20 gier)" Foreground="#94A3B8" FontSize="11" Margin="0,8,0,4" />
+                    <Canvas x:Name="TrendChartCanvas" Width="250" Height="74" HorizontalAlignment="Center" />
+                </StackPanel>
+            </Border>
+
+            <Grid Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="10" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border x:Name="NextCard" Grid.Column="0" CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="12">
+                    <StackPanel>
+                        <TextBlock Text="NASTĘPNY" Foreground="#94A3B8" FontSize="12" Margin="0,0,0,6" />
+                        <Canvas x:Name="NextPieceCanvas" Width="120" Height="100" HorizontalAlignment="Center" />
+                    </StackPanel>
+                </Border>
+
+                <Border x:Name="HoldCard" Grid.Column="2" CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="12">
+                    <StackPanel>
+                        <TextBlock Text="HOLD" Foreground="#94A3B8" FontSize="12" Margin="0,0,0,6" />
+                        <Canvas x:Name="HoldPieceCanvas" Width="120" Height="100" HorizontalAlignment="Center" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <Border x:Name="StatusCard" CornerRadius="10" BorderBrush="#32435F" BorderThickness="2" Background="#091224" Padding="12">
                 <TextBlock x:Name="StatusText"
                            Text="Strzałki: ruch/obrót • Spacja: zrzut • P: pauza • Esc"
                            Foreground="#A9B7CB"
                            TextWrapping="Wrap"
-                           FontSize="14" />
+                           FontSize="13" />
             </Border>
         </StackPanel>
         <Grid x:Name="StartMenuOverlay" Grid.ColumnSpan="3" Background="#0A1224" Panel.ZIndex="20">
@@ -202,17 +234,38 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <StackPanel Grid.Row="0" Margin="0,40,0,12" HorizontalAlignment="Center">
-                <TextBlock Text="TETRIS"
-                           Foreground="#F8FAFC"
-                           FontSize="72"
-                           FontWeight="Black"
-                           HorizontalAlignment="Center" />
-                <TextBlock Text="MENU GŁÓWNE"
-                           Foreground="#94A3B8"
-                           FontSize="20"
-                           HorizontalAlignment="Center" />
-            </StackPanel>
+            <Border Grid.Row="0"
+                    Margin="0,24,0,8"
+                    CornerRadius="18"
+                    Background="#121F39"
+                    BorderBrush="#355071"
+                    BorderThickness="1"
+                    Padding="20,14">
+                <StackPanel HorizontalAlignment="Center">
+                    <TextBlock Text="TETRIS"
+                               Foreground="#F8FAFC"
+                               FontSize="72"
+                               FontWeight="Black"
+                               HorizontalAlignment="Center" />
+                    <TextBlock Text="MENU GŁÓWNE"
+                               Foreground="#94A3B8"
+                               FontSize="20"
+                               HorizontalAlignment="Center" />
+                    <DockPanel Margin="0,12,0,0" LastChildFill="False" HorizontalAlignment="Center">
+                        <Border CornerRadius="999" Background="#1D4ED8" Padding="12,4" Margin="0,0,10,0">
+                            <TextBlock Text="WERSJA 1.1.0" Foreground="#DBEAFE" FontWeight="Bold" FontSize="12" />
+                        </Border>
+                        <Button Content="CO NOWEGO"
+                                Click="OpenWhatsNewButton_Click"
+                                Padding="14,6"
+                                FontSize="13"
+                                FontWeight="Bold"
+                                Background="#24344F"
+                                Foreground="#F8FAFC"
+                                BorderBrush="#4A648A" />
+                    </DockPanel>
+                </StackPanel>
+            </Border>
 
             <Border Grid.Row="1"
                     Margin="80,18,80,20"
@@ -232,6 +285,7 @@
                         <Button x:Name="MenuNewGameButton"
                                 Content="NOWA GRA"
                                 Click="MenuNewGameButton_Click"
+                                Style="{DynamicResource MainMenuTabButtonStyle}"
                                 FontSize="24"
                                 FontWeight="Bold"
                                 Height="70"
@@ -242,6 +296,7 @@
                         <Button x:Name="MenuHighscoreButton"
                                 Content="HIGHSCORE"
                                 Click="MenuHighscoreButton_Click"
+                                Style="{DynamicResource MainMenuTabButtonStyle}"
                                 FontSize="24"
                                 FontWeight="Bold"
                                 Height="70"
@@ -252,6 +307,7 @@
                         <Button x:Name="MenuSettingsButton"
                                 Content="SETTINGS"
                                 Click="MenuSettingsButton_Click"
+                                Style="{DynamicResource MainMenuTabButtonStyle}"
                                 FontSize="24"
                                 FontWeight="Bold"
                                 Height="70"
@@ -263,15 +319,143 @@
 
                     <Grid Grid.Row="2">
                         <Grid.Resources>
+                            <Style x:Key="MainMenuTabButtonStyle" TargetType="Button">
+                                <Setter Property="BorderThickness" Value="2" />
+                                <Setter Property="Padding" Value="12,8" />
+                                <Setter Property="Cursor" Value="Hand" />
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="ButtonBorder"
+                                                    CornerRadius="14"
+                                                    Background="{TemplateBinding Background}"
+                                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                                    BorderThickness="{TemplateBinding BorderThickness}">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="ButtonBorder" Property="Background" Value="#2563EB" />
+                                                </Trigger>
+                                                <Trigger Property="IsPressed" Value="True">
+                                                    <Setter TargetName="ButtonBorder" Property="Background" Value="#1E40AF" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+
                             <Style TargetType="ComboBox">
                                 <Setter Property="Background" Value="#0A162C" />
                                 <Setter Property="Foreground" Value="#F8FAFC" />
                                 <Setter Property="BorderBrush" Value="#3C577C" />
                                 <Setter Property="Padding" Value="8" />
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ComboBox">
+                                            <Grid>
+                                                <Border x:Name="ComboBorder"
+                                                        Background="{TemplateBinding Background}"
+                                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                                        BorderThickness="1"
+                                                        CornerRadius="8">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="34" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <ContentPresenter Grid.Column="0"
+                                                                          Margin="10,2,6,2"
+                                                                          VerticalAlignment="Center"
+                                                                          HorizontalAlignment="Left"
+                                                                          IsHitTestVisible="False"
+                                                                          Content="{TemplateBinding SelectionBoxItem}"
+                                                                          ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                                                          ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"
+                                                                          TextElement.Foreground="{TemplateBinding Foreground}" />
+                                                        <TextBlock Grid.Column="1"
+                                                                   Text="▼"
+                                                                   Foreground="#BFDBFE"
+                                                                   HorizontalAlignment="Center"
+                                                                   VerticalAlignment="Center"
+                                                                   FontSize="12"
+                                                                   IsHitTestVisible="False" />
+                                                        <ToggleButton x:Name="DropDownToggle"
+                                                                      Grid.ColumnSpan="2"
+                                                                      Background="Transparent"
+                                                                      BorderThickness="0"
+                                                                      Focusable="False"
+                                                                      ClickMode="Press"
+                                                                      IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
+                                                            <ToggleButton.Template>
+                                                                <ControlTemplate TargetType="ToggleButton">
+                                                                    <Border Background="Transparent" />
+                                                                </ControlTemplate>
+                                                            </ToggleButton.Template>
+                                                        </ToggleButton>
+                                                    </Grid>
+                                                </Border>
+                                                <Popup x:Name="PART_Popup"
+                                                       Placement="Bottom"
+                                                       IsOpen="{TemplateBinding IsDropDownOpen}"
+                                                       AllowsTransparency="True"
+                                                       Focusable="False"
+                                                       PopupAnimation="Slide">
+                                                    <Border Background="#132647"
+                                                            BorderBrush="#3C577C"
+                                                            BorderThickness="1"
+                                                            CornerRadius="8"
+                                                            Margin="0,4,0,0"
+                                                            MinWidth="{TemplateBinding ActualWidth}">
+                                                        <ScrollViewer MaxHeight="260">
+                                                            <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained" />
+                                                        </ScrollViewer>
+                                                    </Border>
+                                                </Popup>
+                                            </Grid>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                                    <Setter TargetName="ComboBorder" Property="BorderBrush" Value="#60A5FA" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                                <Setter Property="ItemContainerStyle">
+                                    <Setter.Value>
+                                        <Style TargetType="ComboBoxItem">
+                                            <Setter Property="Background" Value="#132647" />
+                                            <Setter Property="Foreground" Value="#F8FAFC" />
+                                            <Setter Property="Padding" Value="8,4" />
+                                            <Style.Triggers>
+                                                <Trigger Property="IsHighlighted" Value="True">
+                                                    <Setter Property="Background" Value="#1D4ED8" />
+                                                    <Setter Property="Foreground" Value="#FFFFFF" />
+                                                </Trigger>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter Property="Background" Value="#2563EB" />
+                                                    <Setter Property="Foreground" Value="#FFFFFF" />
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Setter.Value>
+                                </Setter>
                             </Style>
                             <Style TargetType="ComboBoxItem">
                                 <Setter Property="Background" Value="#132647" />
                                 <Setter Property="Foreground" Value="#F8FAFC" />
+                                <Setter Property="Padding" Value="8,4" />
+                                <Style.Triggers>
+                                    <Trigger Property="IsHighlighted" Value="True">
+                                        <Setter Property="Background" Value="#1D4ED8" />
+                                        <Setter Property="Foreground" Value="#FFFFFF" />
+                                    </Trigger>
+                                    <Trigger Property="IsSelected" Value="True">
+                                        <Setter Property="Background" Value="#2563EB" />
+                                        <Setter Property="Foreground" Value="#FFFFFF" />
+                                    </Trigger>
+                                </Style.Triggers>
                             </Style>
                         </Grid.Resources>
 
@@ -305,6 +489,7 @@
                                 <TextBlock Text="Tryb gry" Foreground="#CBD5E1" FontSize="18" />
                                 <ComboBox x:Name="GameModeComboBox"
                                           SelectedIndex="0"
+                                          SelectionChanged="GameModeComboBox_SelectionChanged"
                                           Margin="0,8,0,16"
                                           Padding="8"
                                           FontSize="18"
@@ -313,11 +498,15 @@
                                           BorderBrush="#3C577C">
                                     <ComboBoxItem Content="Klasyczny" />
                                     <ComboBoxItem Content="Survival" />
+                                    <ComboBoxItem Content="Sprint (40 linii)" />
+                                    <ComboBoxItem Content="Ultra (120s)" />
+                                    <ComboBoxItem Content="Marathon" />
                                 </ComboBox>
 
                                 <TextBlock Text="Tryb kolorów" Foreground="#CBD5E1" FontSize="18" />
                                 <ComboBox x:Name="ThemeComboBox"
                                           SelectedIndex="0"
+                                          SelectionChanged="ThemeComboBox_SelectionChanged"
                                           Margin="0,8,0,16"
                                           Padding="8"
                                           FontSize="18"
@@ -328,6 +517,14 @@
                                     <ComboBoxItem Content="Sunset Retro" />
                                     <ComboBoxItem Content="Fade Glow" />
                                 </ComboBox>
+
+                                <CheckBox x:Name="ColorblindModeCheckBox"
+                                          Content="Tryb daltonistyczny (kolor + ikony)"
+                                          Margin="0,0,0,16"
+                                          Foreground="#E2E8F0"
+                                          FontSize="16"
+                                          Checked="ColorblindModeCheckBox_Changed"
+                                          Unchecked="ColorblindModeCheckBox_Changed" />
 
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
                                     <Button Content="Wyjdź"
@@ -356,18 +553,40 @@
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
                                     <RowDefinition Height="*" />
                                     <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
 
                                 <TextBlock Grid.Row="0"
-                                           Text="HIGHSCORE CONTROL CENTER"
+                                           Text="HIGHSCORE CONTROL CENTER (TOP 100)"
                                            Foreground="#D7E4F6"
                                            FontSize="30"
                                            FontWeight="Bold"
                                            Margin="0,0,0,12" />
 
-                                <Border Grid.Row="1" CornerRadius="10" BorderBrush="#4A648A" BorderThickness="1" Background="#102442" Padding="12" Margin="0,0,0,12">
+                                <DockPanel Grid.Row="1" Margin="0,0,0,12">
+                                    <TextBlock Text="Ranking trybu:"
+                                               Foreground="#CBD5E1"
+                                               FontSize="16"
+                                               VerticalAlignment="Center" />
+                                    <ComboBox x:Name="HighscoreModeComboBox"
+                                              SelectionChanged="HighscoreModeComboBox_SelectionChanged"
+                                              Width="240"
+                                              Margin="12,0,0,0"
+                                              SelectedIndex="0"
+                                              Background="#0A162C"
+                                              Foreground="#F8FAFC"
+                                              BorderBrush="#3C577C">
+                                        <ComboBoxItem Content="Klasyczny" />
+                                        <ComboBoxItem Content="Survival" />
+                                        <ComboBoxItem Content="Sprint" />
+                                        <ComboBoxItem Content="Ultra" />
+                                        <ComboBoxItem Content="Marathon" />
+                                    </ComboBox>
+                                </DockPanel>
+
+                                <Border Grid.Row="2" CornerRadius="10" BorderBrush="#4A648A" BorderThickness="1" Background="#102442" Padding="12" Margin="0,0,0,12">
                                     <StackPanel>
                                         <TextBlock Text="Podaj hasło, aby odblokować edycję nicków i usuwanie rekordów" Foreground="#CBD5E1" FontSize="14" />
                                         <DockPanel Margin="0,10,0,0">
@@ -393,7 +612,7 @@
                                     </StackPanel>
                                 </Border>
 
-                                <ListBox Grid.Row="2"
+                                <ListBox Grid.Row="3"
                                          x:Name="StartHighScoresListBox"
                                          Background="#0A162C"
                                          BorderBrush="#3C577C"
@@ -401,7 +620,7 @@
                                          FontSize="18"
                                          Padding="6" />
 
-                                <TextBlock Grid.Row="3"
+                                <TextBlock Grid.Row="4"
                                            x:Name="HighscoreManageHintText"
                                            Foreground="#FCA5A5"
                                            FontSize="15"
@@ -411,11 +630,32 @@
 
                         <ScrollViewer x:Name="SettingsPanel" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                             <StackPanel Margin="16,8,16,16">
-                                <TextBlock Text="Ustawienia dźwięku" Foreground="#D7E4F6" FontSize="28" FontWeight="Bold" Margin="0,0,0,10" />
+                                <TextBlock Text="Ustawienia gry" Foreground="#D7E4F6" FontSize="28" FontWeight="Bold" Margin="0,0,0,10" />
 
                                 <Border CornerRadius="10" BorderBrush="#3C577C" BorderThickness="1" Background="#132647" Padding="12" Margin="0,0,0,12">
                                     <StackPanel>
-                                        <TextBlock Text="Muzyka" Foreground="#E2E8F0" FontSize="17" Margin="0,0,0,4" />
+                                        <TextBlock Text="Widok i audio" Foreground="#E2E8F0" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8" />
+
+                                        <CheckBox x:Name="ShowSessionStatsCheckBox"
+                                                  Content="Pokazuj statystyki sesji w HUD"
+                                                  IsChecked="True"
+                                                  Margin="0,0,0,4"
+                                                  Foreground="#E2E8F0"
+                                                  FontSize="16"
+                                                  Checked="SettingsToggleCheckBox_Changed"
+                                                  Unchecked="SettingsToggleCheckBox_Changed" />
+                                        <TextBlock Text="Wyświetla APM, PPS, średni lock delay i liczbę Tetrisów na prawym panelu." Foreground="#94A3B8" FontSize="13" Margin="26,0,0,8" TextWrapping="Wrap" />
+
+                                        <CheckBox x:Name="MusicEnabledCheckBox"
+                                                  Content="Włącz muzykę"
+                                                  IsChecked="True"
+                                                  Margin="0,0,0,4"
+                                                  Foreground="#E2E8F0"
+                                                  FontSize="16"
+                                                  Checked="SettingsToggleCheckBox_Changed"
+                                                  Unchecked="SettingsToggleCheckBox_Changed" />
+                                        <TextBlock Text="Muzyka w tle podczas rozgrywki. Suwak poniżej ustawia głośność muzyki." Foreground="#94A3B8" FontSize="13" Margin="26,0,0,8" TextWrapping="Wrap" />
+                                        <TextBlock Text="Głośność muzyki" Foreground="#E2E8F0" FontSize="16" Margin="0,0,0,4" />
                                         <Slider x:Name="MusicVolumeSlider"
                                                 Minimum="0"
                                                 Maximum="1"
@@ -423,12 +663,17 @@
                                                 TickFrequency="0.1"
                                                 IsSnapToTickEnabled="False"
                                                 ValueChanged="MusicVolumeSlider_ValueChanged" />
-                                    </StackPanel>
-                                </Border>
 
-                                <Border CornerRadius="10" BorderBrush="#3C577C" BorderThickness="1" Background="#132647" Padding="12" Margin="0,0,0,16">
-                                    <StackPanel>
-                                        <TextBlock Text="Efekty" Foreground="#E2E8F0" FontSize="17" Margin="0,0,0,4" />
+                                        <CheckBox x:Name="EffectsEnabledCheckBox"
+                                                  Content="Włącz efekty dźwiękowe"
+                                                  IsChecked="True"
+                                                  Margin="0,10,0,4"
+                                                  Foreground="#E2E8F0"
+                                                  FontSize="16"
+                                                  Checked="SettingsToggleCheckBox_Changed"
+                                                  Unchecked="SettingsToggleCheckBox_Changed" />
+                                        <TextBlock Text="Dźwięki akcji (obrót, czyszczenie linii, przyciski, game over)." Foreground="#94A3B8" FontSize="13" Margin="26,0,0,8" TextWrapping="Wrap" />
+                                        <TextBlock Text="Głośność efektów" Foreground="#E2E8F0" FontSize="16" Margin="0,0,0,4" />
                                         <Slider x:Name="EffectsVolumeSlider"
                                                 Minimum="0"
                                                 Maximum="1"
@@ -436,6 +681,88 @@
                                                 TickFrequency="0.1"
                                                 IsSnapToTickEnabled="False"
                                                 ValueChanged="EffectsVolumeSlider_ValueChanged" />
+                                    </StackPanel>
+                                </Border>
+
+                                <TextBlock Text="Sterowanie" Foreground="#D7E4F6" FontSize="28" FontWeight="Bold" Margin="0,0,0,10" />
+                                <TextBlock Text="DAS to opóźnienie startu auto-przesuwu po przytrzymaniu, ARR to tempo dalszego przesuwu. Mniejsze wartości = szybsza reakcja." Foreground="#94A3B8" FontSize="13" Margin="0,0,0,10" TextWrapping="Wrap" />
+
+                                <Border CornerRadius="10" BorderBrush="#3C577C" BorderThickness="1" Background="#132647" Padding="12" Margin="0,0,0,12">
+                                    <StackPanel>
+                                        <TextBlock Text="DAS (ms)" Foreground="#E2E8F0" FontSize="17" Margin="0,0,0,4" />
+                                        <TextBox x:Name="DasTextBox" Text="140" Padding="8" Background="#0A162C" Foreground="#F8FAFC" BorderBrush="#3C577C" ToolTip="DAS: opóźnienie auto-przesuwu po przytrzymaniu (ms)." />
+                                        <TextBlock Text="ARR (ms)" Foreground="#E2E8F0" FontSize="17" Margin="0,8,0,4" />
+                                        <TextBox x:Name="ArrTextBox" Text="45" Padding="8" Background="#0A162C" Foreground="#F8FAFC" BorderBrush="#3C577C" ToolTip="ARR: szybkość powtarzania przesuwu po DAS (ms)." />
+                                    </StackPanel>
+                                </Border>
+
+                                <Border CornerRadius="10" BorderBrush="#3C577C" BorderThickness="1" Background="#132647" Padding="12" Margin="0,0,0,16">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="180" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+
+                                        <TextBlock Grid.Row="0" Text="Ruch w lewo" Foreground="#E2E8F0" FontSize="16" Margin="0,0,0,6" />
+                                        <TextBox x:Name="MoveLeftKeyTextBox" Grid.Row="0" Grid.Column="1" Text="Left" Margin="8,0,0,6" Padding="6" Background="#0A162C" Foreground="#F8FAFC" BorderBrush="#3C577C" ToolTip="Klawisz ruchu w lewo." />
+
+                                        <TextBlock Grid.Row="1" Text="Ruch w prawo" Foreground="#E2E8F0" FontSize="16" Margin="0,0,0,6" />
+                                        <TextBox x:Name="MoveRightKeyTextBox" Grid.Row="1" Grid.Column="1" Text="Right" Margin="8,0,0,6" Padding="6" Background="#0A162C" Foreground="#F8FAFC" BorderBrush="#3C577C" ToolTip="Klawisz ruchu w prawo." />
+
+                                        <TextBlock Grid.Row="2" Text="Soft drop" Foreground="#E2E8F0" FontSize="16" Margin="0,0,0,6" />
+                                        <TextBox x:Name="SoftDropKeyTextBox" Grid.Row="2" Grid.Column="1" Text="Down" Margin="8,0,0,6" Padding="6" Background="#0A162C" Foreground="#F8FAFC" BorderBrush="#3C577C" ToolTip="Klawisz miękkiego opuszczania (soft drop)." />
+
+                                        <TextBlock Grid.Row="3" Text="Obrót" Foreground="#E2E8F0" FontSize="16" Margin="0,0,0,6" />
+                                        <TextBox x:Name="RotateKeyTextBox" Grid.Row="3" Grid.Column="1" Text="Up" Margin="8,0,0,6" Padding="6" Background="#0A162C" Foreground="#F8FAFC" BorderBrush="#3C577C" ToolTip="Klawisz obrotu klocka." />
+
+                                        <TextBlock Grid.Row="4" Text="Hard drop" Foreground="#E2E8F0" FontSize="16" Margin="0,0,0,6" />
+                                        <TextBox x:Name="HardDropKeyTextBox" Grid.Row="4" Grid.Column="1" Text="Space" Margin="8,0,0,6" Padding="6" Background="#0A162C" Foreground="#F8FAFC" BorderBrush="#3C577C" ToolTip="Klawisz natychmiastowego zrzutu (hard drop)." />
+
+                                        <TextBlock Grid.Row="5" Text="Hold" Foreground="#E2E8F0" FontSize="16" />
+                                        <TextBox x:Name="HoldKeyTextBox" Grid.Row="5" Grid.Column="1" Text="C" Margin="8,0,0,0" Padding="6" Background="#0A162C" Foreground="#F8FAFC" BorderBrush="#3C577C" ToolTip="Klawisz przechowania klocka (hold)." />
+                                    </Grid>
+                                </Border>
+
+                                <Border CornerRadius="10" BorderBrush="#3C577C" BorderThickness="1" Background="#132647" Padding="12" Margin="0,0,0,12">
+                                    <StackPanel>
+                                        <TextBlock Text="Bezpieczeństwo" Foreground="#D7E4F6" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8" />
+                                        <TextBlock Text="Hasło administratora blokuje edycję rankingu i panel reklam. Domyślne hasło: admin." Foreground="#94A3B8" FontSize="13" TextWrapping="Wrap" Margin="0,0,0,8" />
+                                        <DockPanel>
+                                            <PasswordBox x:Name="AdminPasswordSettingsBox"
+                                                         Width="220"
+                                                         Background="#0A162C"
+                                                         Foreground="#F8FAFC"
+                                                         BorderBrush="#3C577C"
+                                                         Padding="8" />
+                                            <Button Content="Zmień hasło"
+                                                    Click="SaveAdminPasswordButton_Click"
+                                                    Margin="10,0,0,0"
+                                                    Padding="12,7"
+                                                    Background="#1D4ED8"
+                                                    Foreground="White"
+                                                    BorderBrush="#5B8EFF" />
+                                        </DockPanel>
+                                        <TextBlock x:Name="AdminPasswordStatusText" Foreground="#93C5FD" FontSize="13" Margin="0,8,0,0" />
+                                    </StackPanel>
+                                </Border>
+
+                                <Border CornerRadius="10" BorderBrush="#3C577C" BorderThickness="1" Background="#132647" Padding="12" Margin="0,0,0,12">
+                                    <StackPanel>
+                                        <TextBlock Text="Statystyki i progres" Foreground="#D7E4F6" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8" />
+                                        <WrapPanel>
+                                            <Button Content="Eksport statystyk CSV" Click="ExportStatsCsvButton_Click" Padding="12,8" Margin="0,0,8,8" ToolTip="Eksport ostatnich sesji do CSV." />
+                                            <Button Content="Eksport statystyk JSON" Click="ExportStatsJsonButton_Click" Padding="12,8" Margin="0,0,8,8" ToolTip="Eksport ostatnich sesji do JSON." />
+                                            <Button Content="Eksport rekordów CSV" Click="ExportHighscoresCsvButton_Click" Padding="12,8" Margin="0,0,8,8" ToolTip="Eksport rankingów per tryb do CSV." />
+                                        </WrapPanel>
+                                        <TextBlock x:Name="ExportStatusText" Foreground="#93C5FD" FontSize="13" TextWrapping="Wrap" />
                                     </StackPanel>
                                 </Border>
 
@@ -609,6 +936,29 @@
                         </ScrollViewer>
                     </Grid>
                 </Grid>
+            </Border>
+
+            <Border x:Name="TutorialOverlay" Grid.RowSpan="3" Panel.ZIndex="30" Background="#B30A1224" Visibility="Collapsed">
+                <Border HorizontalAlignment="Center" VerticalAlignment="Center" Width="780" CornerRadius="16" BorderBrush="#4A648A" BorderThickness="2" Background="#0F1C34" Padding="20">
+                    <StackPanel>
+                        <TextBlock Text="Szybki tutorial" Foreground="#E2E8F0" FontSize="34" FontWeight="Bold" />
+                        <TextBlock x:Name="TutorialStepText" Margin="0,12,0,16" Foreground="#CBD5E1" FontSize="20" TextWrapping="Wrap" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button Content="Pomiń" Click="SkipTutorialButton_Click" Padding="14,8" Margin="0,0,8,0"/>
+                            <Button x:Name="TutorialNextButton" Content="Dalej" Click="TutorialNextButton_Click" Padding="18,8"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Border>
+
+            <Border x:Name="WhatsNewOverlay" Grid.RowSpan="3" Panel.ZIndex="29" Background="#990A1224" Visibility="Collapsed">
+                <Border HorizontalAlignment="Center" VerticalAlignment="Center" Width="760" CornerRadius="16" BorderBrush="#4A648A" BorderThickness="2" Background="#0F1C34" Padding="20">
+                    <StackPanel>
+                        <TextBlock Text="Co nowego" Foreground="#E2E8F0" FontSize="34" FontWeight="Bold" />
+                        <TextBlock x:Name="WhatsNewText" Margin="0,12,0,16" Foreground="#CBD5E1" FontSize="18" TextWrapping="Wrap" />
+                        <Button Content="OK" Click="CloseWhatsNewButton_Click" Padding="18,8" HorizontalAlignment="Right"/>
+                    </StackPanel>
+                </Border>
             </Border>
 
             <TextBlock Grid.Row="2"

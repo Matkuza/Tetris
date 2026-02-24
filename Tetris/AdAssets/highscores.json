@@ -1,14 +1,65 @@
-[
-  {
-    "Name": "go",
-    "Points": 120
-  },
-  {
-    "Name": "go",
-    "Points": 120
-  },
-  {
-    "Name": "go",
-    "Points": 0
+{
+  "Modes": {
+    "Classic": [
+      {
+        "Name": "go",
+        "Points": 2860
+      },
+      {
+        "Name": "go",
+        "Points": 960
+      },
+      {
+        "Name": "go",
+        "Points": 480
+      },
+      {
+        "Name": "go",
+        "Points": 360
+      },
+      {
+        "Name": "go",
+        "Points": 120
+      }
+    ],
+    "Survival": [],
+    "Sprint": [
+      {
+        "Name": "go",
+        "Points": 5900
+      }
+    ],
+    "Ultra": [
+      {
+        "Name": "go",
+        "Points": 1800
+      },
+      {
+        "Name": "go",
+        "Points": 1560
+      }
+    ],
+    "Marathon": [
+      {
+        "Name": "go",
+        "Points": 5500
+      },
+      {
+        "Name": "go",
+        "Points": 5440
+      },
+      {
+        "Name": "go",
+        "Points": 4440
+      },
+      {
+        "Name": "go",
+        "Points": 4400
+      },
+      {
+        "Name": "go",
+        "Points": 3080
+      }
+    ]
   }
-]
+}
