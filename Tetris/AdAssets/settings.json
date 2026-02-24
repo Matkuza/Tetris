@@ -1,8 +1,17 @@
 {
   "Nick": "go",
   "StartLevelIndex": 0,
-  "GameModeIndex": 1,
+  "GameModeIndex": 4,
   "ThemeIndex": 2,
   "MusicVolume": 0.6,
-  "EffectsVolume": 0.8
+  "EffectsVolume": 0.8,
+  "DasMs": 0,
+  "ArrMs": 0,
+  "MoveLeftKey": "A",
+  "MoveRightKey": "D",
+  "SoftDropKey": "S",
+  "RotateKey": "W",
+  "HardDropKey": "Space",
+  "HoldKey": "C",
+  "ColorblindMode": false
 }
