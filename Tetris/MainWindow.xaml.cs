@@ -22,7 +22,8 @@ public partial class MainWindow : Window
 {
     private const int BoardWidth = 10;
     private const int BoardHeight = 20;
-    private const string AdManagerPassword = "12345";
+    private const string DefaultAdminPassword = "admin";
+    private const int HighscoreMaxEntries = 100;
 
     private readonly GameEngine _engine = new(BoardWidth, BoardHeight);
     private readonly Random _random = new();
@@ -74,8 +75,8 @@ public partial class MainWindow : Window
     private readonly List<SessionHistoryEntry> _sessionHistory = [];
     private OnboardingState _onboardingState = new(false, string.Empty);
     private int _tutorialStepIndex;
-    private const string CurrentWhatsNewVersion = "1.1.0";
-    private const string WhatsNewMessage = "• Dodano Marathon i statystyki sesji.\n• Dodano tryb daltonistyczny i wzory/ikony klocków.\n• Poprawiono układ paneli po prawej stronie.";
+    private const string CurrentWhatsNewVersion = "1.2.0";
+    private const string WhatsNewMessage = "• Ustawienia dostały nowe przełączniki (HUD statystyk, muzyka, efekty) z opisami.\n• Dodano zmianę hasła administratora (domyślnie: admin).\n• Ranking rozszerzono do TOP 100 na tryb.";
     private static readonly string[] TutorialSteps =
     [
         "1/4 Ruch: ←/→ przesuwają klocek, ↑ obraca, Spacja robi hard drop.",
@@ -109,6 +110,10 @@ public partial class MainWindow : Window
     private int _lockSamples;
     private long? _groundContactStartedMs;
     private bool _colorblindMode;
+    private bool _showSessionStats = true;
+    private bool _musicEnabled = true;
+    private bool _effectsEnabled = true;
+    private string _adminPassword = DefaultAdminPassword;
 
 
     private Color _emptyCellColor = Color.FromRgb(12, 20, 38);
@@ -280,7 +285,7 @@ public partial class MainWindow : Window
 
     private void PlayEffect(string soundKey)
     {
-        if (_effectsVolume <= 0.001 || !_effectPlayers.TryGetValue(soundKey, out var player))
+        if (!_effectsEnabled || _effectsVolume <= 0.001 || !_effectPlayers.TryGetValue(soundKey, out var player))
         {
             return;
         }
@@ -292,7 +297,7 @@ public partial class MainWindow : Window
 
     private void PlayBackgroundMusic()
     {
-        if (_musicVolume <= 0.001)
+        if (!_musicEnabled || _musicVolume <= 0.001)
         {
             return;
         }
@@ -332,7 +337,7 @@ public partial class MainWindow : Window
         _musicVolume = Math.Clamp(e.NewValue, 0, 1);
         _backgroundMusicPlayer.Volume = ScaleVolume(_musicVolume, MaxMusicOutputVolume);
 
-        if (_musicVolume <= 0.001)
+        if (!_musicEnabled || _musicVolume <= 0.001)
         {
             StopBackgroundMusic();
             return;
@@ -786,9 +791,9 @@ public partial class MainWindow : Window
         var modeScores = GetHighScoresForMode(_activeGameMode);
         modeScores.Add(new ScoreEntry(nick, _score));
         modeScores.Sort((a, b) => b.Points.CompareTo(a.Points));
-        if (modeScores.Count > 5)
+        if (modeScores.Count > HighscoreMaxEntries)
         {
-            modeScores.RemoveRange(5, modeScores.Count - 5);
+            modeScores.RemoveRange(HighscoreMaxEntries, modeScores.Count - HighscoreMaxEntries);
         }
 
         RefreshHighScores();
@@ -806,7 +811,8 @@ public partial class MainWindow : Window
 
         var modeScores = GetHighScoresForMode(_selectedHighscoreMode);
 
-        for (var i = 0; i < 5; i++)
+        var rowCount = Math.Max(5, Math.Min(HighscoreMaxEntries, modeScores.Count));
+        for (var i = 0; i < rowCount; i++)
         {
             var hasEntry = i < modeScores.Count;
             var entry = hasEntry ? modeScores[i] : new ScoreEntry("---", 0);
@@ -1107,6 +1113,7 @@ public partial class MainWindow : Window
             _ => "--:--"
         };
         ModeTimerText.Text = timerText;
+        SessionStatsCard.Visibility = _showSessionStats ? Visibility.Visible : Visibility.Collapsed;
         SessionStatsText.Text = $"APM: {apm:0.0} • PPS: {pps:0.00} • Lock: {averageLockDelay}ms • Tetris: {_tetrisLineClears}";
         DrawTrendChart();
 
@@ -1699,6 +1706,9 @@ public partial class MainWindow : Window
             GameModeComboBox.SelectedIndex = Math.Clamp(settings.GameModeIndex, 0, 4);
             ThemeComboBox.SelectedIndex = Math.Clamp(settings.ThemeIndex, 0, 2);
             ColorblindModeCheckBox.IsChecked = settings.ColorblindMode;
+            ShowSessionStatsCheckBox.IsChecked = settings.ShowSessionStats;
+            MusicEnabledCheckBox.IsChecked = settings.MusicEnabled;
+            EffectsEnabledCheckBox.IsChecked = settings.EffectsEnabled;
             MusicVolumeSlider.Value = Math.Clamp(settings.MusicVolume, 0, 1);
             EffectsVolumeSlider.Value = Math.Clamp(settings.EffectsVolume, 0, 1);
             _dasMs = Math.Clamp(settings.DasMs, 0, 500);
@@ -1710,7 +1720,14 @@ public partial class MainWindow : Window
             _hardDropKey = ParseKey(settings.HardDropKey, Key.Space);
             _holdKey = ParseKey(settings.HoldKey, Key.C);
             _colorblindMode = settings.ColorblindMode;
+            _showSessionStats = settings.ShowSessionStats == true;
+            _musicEnabled = settings.MusicEnabled == true;
+            _effectsEnabled = settings.EffectsEnabled == true;
+            _adminPassword = string.IsNullOrWhiteSpace(settings.AdminPassword) ? DefaultAdminPassword : settings.AdminPassword;
+            AdminPasswordStatusText.Text = $"Hasło administratora ustawione (domyślne: {DefaultAdminPassword}).";
             ApplyControlSettingsToUi();
+            SessionStatsCard.Visibility = _showSessionStats ? Visibility.Visible : Visibility.Collapsed;
+            ApplyAudioSettingsUi();
         }
         catch
         {
@@ -1735,6 +1752,9 @@ public partial class MainWindow : Window
         ApplyControlSettingsToUi();
 
         _colorblindMode = ColorblindModeCheckBox.IsChecked == true;
+        _showSessionStats = ShowSessionStatsCheckBox.IsChecked == true;
+        _musicEnabled = MusicEnabledCheckBox.IsChecked == true;
+        _effectsEnabled = EffectsEnabledCheckBox.IsChecked == true;
 
         var settings = new GameSettings(
             NickTextBox.Text.Trim(),
@@ -1751,7 +1771,11 @@ public partial class MainWindow : Window
             _rotateKey.ToString(),
             _hardDropKey.ToString(),
             _holdKey.ToString(),
-            _colorblindMode);
+            _colorblindMode,
+            _showSessionStats,
+            _musicEnabled,
+            _effectsEnabled,
+            _adminPassword);
 
         var json = SettingsPersistence.Serialize(settings, JsonWriteOptions);
         File.WriteAllText(_settingsPath, json);
@@ -2244,7 +2268,7 @@ public partial class MainWindow : Window
     private void UnlockHighscoreActionsButton_Click(object sender, RoutedEventArgs e)
     {
         PlayEffect("buttonClick");
-        if (HighscorePasswordBox.Password != AdManagerPassword)
+        if (HighscorePasswordBox.Password != _adminPassword)
         {
             _isHighscoreUnlocked = false;
             HighscoreAuthStatusText.Text = "❌ Błędne hasło";
@@ -2406,7 +2430,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (passwordBox.Password != AdManagerPassword)
+        if (passwordBox.Password != _adminPassword)
         {
             hintText.Text = "Błędne hasło";
             return;
@@ -2440,7 +2464,11 @@ public partial class MainWindow : Window
             "Up",
             "Space",
             "C",
-            false);
+            false,
+            true,
+            true,
+            true,
+            DefaultAdminPassword);
     }
 
     private void ThemeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -2462,6 +2490,58 @@ public partial class MainWindow : Window
         }
 
         ApplyTheme();
+        SaveSettings();
+    }
+    private void ApplyAudioSettingsUi()
+    {
+        MusicVolumeSlider.IsEnabled = _musicEnabled;
+        EffectsVolumeSlider.IsEnabled = _effectsEnabled;
+        MusicVolumeSlider.Opacity = _musicEnabled ? 1 : 0.45;
+        EffectsVolumeSlider.Opacity = _effectsEnabled ? 1 : 0.45;
+    }
+
+    private void SettingsToggleCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_isLoadingSettings)
+        {
+            return;
+        }
+
+        _showSessionStats = ShowSessionStatsCheckBox.IsChecked == true;
+        _musicEnabled = MusicEnabledCheckBox.IsChecked == true;
+        _effectsEnabled = EffectsEnabledCheckBox.IsChecked == true;
+
+        SessionStatsCard.Visibility = _showSessionStats ? Visibility.Visible : Visibility.Collapsed;
+        ApplyAudioSettingsUi();
+
+        if (!_musicEnabled)
+        {
+            StopBackgroundMusic();
+        }
+        else if (_isGameStarted && !_gameOver && !_isPaused && StartMenuOverlay.Visibility != Visibility.Visible)
+        {
+            PlayBackgroundMusic();
+        }
+
+        SaveSettings();
+    }
+
+    private void SaveAdminPasswordButton_Click(object sender, RoutedEventArgs e)
+    {
+        PlayEffect("buttonClick");
+
+        var newPassword = AdminPasswordSettingsBox.Password.Trim();
+        if (newPassword.Length < 4)
+        {
+            AdminPasswordStatusText.Text = "Hasło musi mieć co najmniej 4 znaki.";
+            AdminPasswordStatusText.Foreground = new SolidColorBrush(Color.FromRgb(252, 165, 165));
+            return;
+        }
+
+        _adminPassword = newPassword;
+        AdminPasswordSettingsBox.Password = string.Empty;
+        AdminPasswordStatusText.Text = "✅ Hasło administratora zostało zaktualizowane.";
+        AdminPasswordStatusText.Foreground = new SolidColorBrush(Color.FromRgb(147, 197, 253));
         SaveSettings();
     }
 

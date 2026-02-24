@@ -15,4 +15,8 @@ internal record GameSettings(
     string RotateKey,
     string HardDropKey,
     string HoldKey,
-    bool ColorblindMode);
+    bool ColorblindMode,
+    bool? ShowSessionStats,
+    bool? MusicEnabled,
+    bool? EffectsEnabled,
+    string? AdminPassword);

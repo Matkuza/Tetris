@@ -559,7 +559,7 @@
                                 </Grid.RowDefinitions>
 
                                 <TextBlock Grid.Row="0"
-                                           Text="HIGHSCORE CONTROL CENTER"
+                                           Text="HIGHSCORE CONTROL CENTER (TOP 100)"
                                            Foreground="#D7E4F6"
                                            FontSize="30"
                                            FontWeight="Bold"
@@ -630,11 +630,32 @@
 
                         <ScrollViewer x:Name="SettingsPanel" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                             <StackPanel Margin="16,8,16,16">
-                                <TextBlock Text="Ustawienia dźwięku" Foreground="#D7E4F6" FontSize="28" FontWeight="Bold" Margin="0,0,0,10" />
+                                <TextBlock Text="Ustawienia gry" Foreground="#D7E4F6" FontSize="28" FontWeight="Bold" Margin="0,0,0,10" />
 
                                 <Border CornerRadius="10" BorderBrush="#3C577C" BorderThickness="1" Background="#132647" Padding="12" Margin="0,0,0,12">
                                     <StackPanel>
-                                        <TextBlock Text="Muzyka" Foreground="#E2E8F0" FontSize="17" Margin="0,0,0,4" />
+                                        <TextBlock Text="Widok i audio" Foreground="#E2E8F0" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8" />
+
+                                        <CheckBox x:Name="ShowSessionStatsCheckBox"
+                                                  Content="Pokazuj statystyki sesji w HUD"
+                                                  IsChecked="True"
+                                                  Margin="0,0,0,4"
+                                                  Foreground="#E2E8F0"
+                                                  FontSize="16"
+                                                  Checked="SettingsToggleCheckBox_Changed"
+                                                  Unchecked="SettingsToggleCheckBox_Changed" />
+                                        <TextBlock Text="Wyświetla APM, PPS, średni lock delay i liczbę Tetrisów na prawym panelu." Foreground="#94A3B8" FontSize="13" Margin="26,0,0,8" TextWrapping="Wrap" />
+
+                                        <CheckBox x:Name="MusicEnabledCheckBox"
+                                                  Content="Włącz muzykę"
+                                                  IsChecked="True"
+                                                  Margin="0,0,0,4"
+                                                  Foreground="#E2E8F0"
+                                                  FontSize="16"
+                                                  Checked="SettingsToggleCheckBox_Changed"
+                                                  Unchecked="SettingsToggleCheckBox_Changed" />
+                                        <TextBlock Text="Muzyka w tle podczas rozgrywki. Suwak poniżej ustawia głośność muzyki." Foreground="#94A3B8" FontSize="13" Margin="26,0,0,8" TextWrapping="Wrap" />
+                                        <TextBlock Text="Głośność muzyki" Foreground="#E2E8F0" FontSize="16" Margin="0,0,0,4" />
                                         <Slider x:Name="MusicVolumeSlider"
                                                 Minimum="0"
                                                 Maximum="1"
@@ -642,12 +663,17 @@
                                                 TickFrequency="0.1"
                                                 IsSnapToTickEnabled="False"
                                                 ValueChanged="MusicVolumeSlider_ValueChanged" />
-                                    </StackPanel>
-                                </Border>
 
-                                <Border CornerRadius="10" BorderBrush="#3C577C" BorderThickness="1" Background="#132647" Padding="12" Margin="0,0,0,16">
-                                    <StackPanel>
-                                        <TextBlock Text="Efekty" Foreground="#E2E8F0" FontSize="17" Margin="0,0,0,4" />
+                                        <CheckBox x:Name="EffectsEnabledCheckBox"
+                                                  Content="Włącz efekty dźwiękowe"
+                                                  IsChecked="True"
+                                                  Margin="0,10,0,4"
+                                                  Foreground="#E2E8F0"
+                                                  FontSize="16"
+                                                  Checked="SettingsToggleCheckBox_Changed"
+                                                  Unchecked="SettingsToggleCheckBox_Changed" />
+                                        <TextBlock Text="Dźwięki akcji (obrót, czyszczenie linii, przyciski, game over)." Foreground="#94A3B8" FontSize="13" Margin="26,0,0,8" TextWrapping="Wrap" />
+                                        <TextBlock Text="Głośność efektów" Foreground="#E2E8F0" FontSize="16" Margin="0,0,0,4" />
                                         <Slider x:Name="EffectsVolumeSlider"
                                                 Minimum="0"
                                                 Maximum="1"
@@ -659,6 +685,7 @@
                                 </Border>
 
                                 <TextBlock Text="Sterowanie" Foreground="#D7E4F6" FontSize="28" FontWeight="Bold" Margin="0,0,0,10" />
+                                <TextBlock Text="DAS to opóźnienie startu auto-przesuwu po przytrzymaniu, ARR to tempo dalszego przesuwu. Mniejsze wartości = szybsza reakcja." Foreground="#94A3B8" FontSize="13" Margin="0,0,0,10" TextWrapping="Wrap" />
 
                                 <Border CornerRadius="10" BorderBrush="#3C577C" BorderThickness="1" Background="#132647" Padding="12" Margin="0,0,0,12">
                                     <StackPanel>
@@ -688,20 +715,43 @@
                                         <TextBox x:Name="MoveLeftKeyTextBox" Grid.Row="0" Grid.Column="1" Text="Left" Margin="8,0,0,6" Padding="6" Background="#0A162C" Foreground="#F8FAFC" BorderBrush="#3C577C" ToolTip="Klawisz ruchu w lewo." />
 
                                         <TextBlock Grid.Row="1" Text="Ruch w prawo" Foreground="#E2E8F0" FontSize="16" Margin="0,0,0,6" />
-                                        <TextBox x:Name="MoveRightKeyTextBox" Grid.Row="1" Grid.Column="1" Text="Right" Margin="8,0,0,6" Padding="6" Background="#0A162C" Foreground="#F8FAFC" BorderBrush="#3C577C" />
+                                        <TextBox x:Name="MoveRightKeyTextBox" Grid.Row="1" Grid.Column="1" Text="Right" Margin="8,0,0,6" Padding="6" Background="#0A162C" Foreground="#F8FAFC" BorderBrush="#3C577C" ToolTip="Klawisz ruchu w prawo." />
 
                                         <TextBlock Grid.Row="2" Text="Soft drop" Foreground="#E2E8F0" FontSize="16" Margin="0,0,0,6" />
-                                        <TextBox x:Name="SoftDropKeyTextBox" Grid.Row="2" Grid.Column="1" Text="Down" Margin="8,0,0,6" Padding="6" Background="#0A162C" Foreground="#F8FAFC" BorderBrush="#3C577C" />
+                                        <TextBox x:Name="SoftDropKeyTextBox" Grid.Row="2" Grid.Column="1" Text="Down" Margin="8,0,0,6" Padding="6" Background="#0A162C" Foreground="#F8FAFC" BorderBrush="#3C577C" ToolTip="Klawisz miękkiego opuszczania (soft drop)." />
 
                                         <TextBlock Grid.Row="3" Text="Obrót" Foreground="#E2E8F0" FontSize="16" Margin="0,0,0,6" />
-                                        <TextBox x:Name="RotateKeyTextBox" Grid.Row="3" Grid.Column="1" Text="Up" Margin="8,0,0,6" Padding="6" Background="#0A162C" Foreground="#F8FAFC" BorderBrush="#3C577C" />
+                                        <TextBox x:Name="RotateKeyTextBox" Grid.Row="3" Grid.Column="1" Text="Up" Margin="8,0,0,6" Padding="6" Background="#0A162C" Foreground="#F8FAFC" BorderBrush="#3C577C" ToolTip="Klawisz obrotu klocka." />
 
                                         <TextBlock Grid.Row="4" Text="Hard drop" Foreground="#E2E8F0" FontSize="16" Margin="0,0,0,6" />
-                                        <TextBox x:Name="HardDropKeyTextBox" Grid.Row="4" Grid.Column="1" Text="Space" Margin="8,0,0,6" Padding="6" Background="#0A162C" Foreground="#F8FAFC" BorderBrush="#3C577C" />
+                                        <TextBox x:Name="HardDropKeyTextBox" Grid.Row="4" Grid.Column="1" Text="Space" Margin="8,0,0,6" Padding="6" Background="#0A162C" Foreground="#F8FAFC" BorderBrush="#3C577C" ToolTip="Klawisz natychmiastowego zrzutu (hard drop)." />
 
                                         <TextBlock Grid.Row="5" Text="Hold" Foreground="#E2E8F0" FontSize="16" />
-                                        <TextBox x:Name="HoldKeyTextBox" Grid.Row="5" Grid.Column="1" Text="C" Margin="8,0,0,0" Padding="6" Background="#0A162C" Foreground="#F8FAFC" BorderBrush="#3C577C" />
+                                        <TextBox x:Name="HoldKeyTextBox" Grid.Row="5" Grid.Column="1" Text="C" Margin="8,0,0,0" Padding="6" Background="#0A162C" Foreground="#F8FAFC" BorderBrush="#3C577C" ToolTip="Klawisz przechowania klocka (hold)." />
                                     </Grid>
+                                </Border>
+
+                                <Border CornerRadius="10" BorderBrush="#3C577C" BorderThickness="1" Background="#132647" Padding="12" Margin="0,0,0,12">
+                                    <StackPanel>
+                                        <TextBlock Text="Bezpieczeństwo" Foreground="#D7E4F6" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8" />
+                                        <TextBlock Text="Hasło administratora blokuje edycję rankingu i panel reklam. Domyślne hasło: admin." Foreground="#94A3B8" FontSize="13" TextWrapping="Wrap" Margin="0,0,0,8" />
+                                        <DockPanel>
+                                            <PasswordBox x:Name="AdminPasswordSettingsBox"
+                                                         Width="220"
+                                                         Background="#0A162C"
+                                                         Foreground="#F8FAFC"
+                                                         BorderBrush="#3C577C"
+                                                         Padding="8" />
+                                            <Button Content="Zmień hasło"
+                                                    Click="SaveAdminPasswordButton_Click"
+                                                    Margin="10,0,0,0"
+                                                    Padding="12,7"
+                                                    Background="#1D4ED8"
+                                                    Foreground="White"
+                                                    BorderBrush="#5B8EFF" />
+                                        </DockPanel>
+                                        <TextBlock x:Name="AdminPasswordStatusText" Foreground="#93C5FD" FontSize="13" Margin="0,8,0,0" />
+                                    </StackPanel>
                                 </Border>
 
                                 <Border CornerRadius="10" BorderBrush="#3C577C" BorderThickness="1" Background="#132647" Padding="12" Margin="0,0,0,12">

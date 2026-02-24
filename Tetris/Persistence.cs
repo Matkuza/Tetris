@@ -7,7 +7,7 @@ internal record HighscoreStoreData(Dictionary<string, List<ScoreEntryData>> Mode
 
 internal static class HighscorePersistence
 {
-    public static Dictionary<string, List<ScoreEntryData>> Parse(string? json, IEnumerable<string> modeKeys, int maxEntries = 5)
+    public static Dictionary<string, List<ScoreEntryData>> Parse(string? json, IEnumerable<string> modeKeys, int maxEntries = 100)
     {
         var keys = modeKeys.ToList();
         var result = keys.ToDictionary(k => k, _ => new List<ScoreEntryData>(), StringComparer.OrdinalIgnoreCase);
@@ -56,7 +56,7 @@ internal static class HighscorePersistence
         return result;
     }
 
-    public static string Serialize(Dictionary<string, List<ScoreEntryData>> byMode, int maxEntries = 5, JsonSerializerOptions? options = null)
+    public static string Serialize(Dictionary<string, List<ScoreEntryData>> byMode, int maxEntries = 100, JsonSerializerOptions? options = null)
     {
         var trimmed = byMode.ToDictionary(
             pair => pair.Key,
@@ -113,7 +113,11 @@ internal static class SettingsPersistence
             SoftDropKey = KeyOr(settings.SoftDropKey, "Down"),
             RotateKey = KeyOr(settings.RotateKey, "Up"),
             HardDropKey = KeyOr(settings.HardDropKey, "Space"),
-            HoldKey = KeyOr(settings.HoldKey, "C")
+            HoldKey = KeyOr(settings.HoldKey, "C"),
+            ShowSessionStats = settings.ShowSessionStats ?? true,
+            MusicEnabled = settings.MusicEnabled ?? true,
+            EffectsEnabled = settings.EffectsEnabled ?? true,
+            AdminPassword = string.IsNullOrWhiteSpace(settings.AdminPassword) ? "admin" : settings.AdminPassword.Trim()
         };
     }
 }

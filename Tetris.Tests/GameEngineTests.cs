@@ -131,7 +131,11 @@ public class GameEngineTests
             "W",
             "Space",
             "LeftShift",
-            true);
+            true,
+            true,
+            true,
+            true,
+            "admin");
 
         var json = JsonSerializer.Serialize(settings);
         var roundtrip = JsonSerializer.Deserialize<GameSettings>(json);
