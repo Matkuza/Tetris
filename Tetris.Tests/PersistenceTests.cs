@@ -8,7 +8,7 @@ public class PersistenceTests
     [Fact]
     public void SettingsDeserializeOrDefault_ReturnsDefaultsForInvalidJson()
     {
-        var defaults = new GameSettings("Player", 0, 0, 0, 0.6, 0.8, 140, 45, "Left", "Right", "Down", "Up", "Space", "C", false);
+        var defaults = new GameSettings("Player", 0, 0, 0, 0.6, 0.8, 140, 45, "Left", "Right", "Down", "Up", "Space", "C", false, true, true, true, "admin");
 
         var parsed = SettingsPersistence.DeserializeOrDefault("not-json", defaults);
 
@@ -18,7 +18,7 @@ public class PersistenceTests
     [Fact]
     public void SettingsSerialize_NormalizesOutOfRangeValues()
     {
-        var settings = new GameSettings("  ", 99, 99, 99, 9, -2, 9999, -2, "", "", "", "", "", "", true);
+        var settings = new GameSettings("  ", 99, 99, 99, 9, -2, 9999, -2, "", "", "", "", "", "", true, true, true, true, "");
 
         var json = SettingsPersistence.Serialize(settings);
         var parsed = JsonSerializer.Deserialize<GameSettings>(json);
@@ -34,6 +34,7 @@ public class PersistenceTests
         Assert.Equal(0, parsed.ArrMs);
         Assert.Equal("Left", parsed.MoveLeftKey);
         Assert.True(parsed.ColorblindMode);
+        Assert.Equal("admin", parsed.AdminPassword);
     }
 
     [Fact]
@@ -46,7 +47,7 @@ public class PersistenceTests
 
         var parsed = HighscorePersistence.Parse(legacy, new[] { "Classic", "Ultra" });
 
-        Assert.Equal(5, parsed["Classic"].Count);
+        Assert.Equal(6, parsed["Classic"].Count);
         Assert.Equal(200, parsed["Classic"][0].Points);
         Assert.Empty(parsed["Ultra"]);
     }
@@ -65,7 +66,7 @@ public class PersistenceTests
         var json = HighscorePersistence.Serialize(data);
         var parsed = HighscorePersistence.Parse(json, new[] { "Classic" });
 
-        Assert.Equal(5, parsed["Classic"].Count);
+        Assert.Equal(6, parsed["Classic"].Count);
         Assert.Equal(100, parsed["Classic"][0].Points);
         Assert.Equal(10, parsed["Classic"][4].Points);
     }

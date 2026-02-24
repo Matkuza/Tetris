@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-02-23
+### Added
+- New settings toggles with clear descriptions: session stats visibility, music enable/disable, effects enable/disable.
+- Admin password change option in settings (default password: `admin`).
+
+### Changed
+- Highscore limit increased from Top 5 to Top 100 per game mode.
+- Updated "What's New" content for the new settings and ranking changes.
+
 ## [1.1.0] - 2026-02-21
 ### Added
 - Marathon mode in gameplay and mode-aware highscore handling.
