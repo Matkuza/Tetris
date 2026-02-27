@@ -1,0 +1,11 @@
+[
+  {
+    "PlayedAtUtc": "2026-02-24T22:35:47.5767706Z",
+    "Mode": "Classic",
+    "Score": 1300,
+    "Apm": 132.89634957531305,
+    "Pps": 0.4626138751039378,
+    "AvgLockDelayMs": 464,
+    "LinesCleared": 7
+  }
+]
