@@ -47,6 +47,7 @@ public partial class MainWindow : Window
     private const double MaxMusicOutputVolume = 0.18;
     private const double MaxEffectsOutputVolume = 0.30;
     private const int MaxLockResetsPerPiece = 8;
+    private const int LockImpactParticleCount = 24;
 
     private int _defaultAdDurationSeconds = 10;
     private int _rotationIntervalSeconds = 1;
@@ -1001,8 +1002,67 @@ public partial class MainWindow : Window
 
     private void LockPiece()
     {
+        EmitLockImpactParticles();
         _engine.LockPiece();
         RegisterPieceLockStats();
+    }
+
+    private void EmitLockImpactParticles()
+    {
+        if (EffectCanvas is null || _currentPiece is null)
+        {
+            return;
+        }
+
+        var contactCells = _currentPiece.Cells
+            .Where(cell =>
+            {
+                var boardY = _currentY + (int)cell.Y;
+                return !_engine.IsPositionValid(_currentX, _currentY + 1, new[] { cell }) || boardY == BoardHeight - 1;
+            })
+            .Select(cell => new Point(_currentX + cell.X + 0.5, _currentY + cell.Y + 1))
+            .ToList();
+
+        if (contactCells.Count == 0)
+        {
+            contactCells = _currentPiece.Cells
+                .Select(cell => new Point(_currentX + cell.X + 0.5, _currentY + cell.Y + 1))
+                .ToList();
+        }
+
+        var color = (_currentPiece.Color as SolidColorBrush)?.Color ?? Colors.White;
+        var rnd = _random;
+
+        for (var i = 0; i < LockImpactParticleCount; i++)
+        {
+            var origin = contactCells[rnd.Next(contactCells.Count)];
+            var size = _cellSize * (0.06 + rnd.NextDouble() * 0.14);
+            var particle = new Ellipse
+            {
+                Width = size,
+                Height = size,
+                Fill = new SolidColorBrush(Color.FromArgb(220, color.R, color.G, color.B)),
+                IsHitTestVisible = false
+            };
+
+            var startX = origin.X * _cellSize + (rnd.NextDouble() - 0.5) * (_cellSize * 0.4);
+            var startY = origin.Y * _cellSize - size;
+            Canvas.SetLeft(particle, startX);
+            Canvas.SetTop(particle, startY);
+            EffectCanvas.Children.Add(particle);
+
+            var endX = startX + (rnd.NextDouble() - 0.5) * (_cellSize * 1.2);
+            var endY = startY + rnd.NextDouble() * (_cellSize * 0.9) + (_cellSize * 0.25);
+
+            var moveX = new DoubleAnimation(startX, endX, TimeSpan.FromMilliseconds(180 + rnd.Next(140)));
+            var moveY = new DoubleAnimation(startY, endY, TimeSpan.FromMilliseconds(200 + rnd.Next(160)));
+            var fade = new DoubleAnimation(0.95, 0, TimeSpan.FromMilliseconds(220 + rnd.Next(140)));
+            fade.Completed += (_, _) => EffectCanvas.Children.Remove(particle);
+
+            particle.BeginAnimation(OpacityProperty, fade);
+            particle.BeginAnimation(Canvas.LeftProperty, moveX);
+            particle.BeginAnimation(Canvas.TopProperty, moveY);
+        }
     }
 
     private void RegisterPieceLockStats()
