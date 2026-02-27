@@ -1,7 +1,9 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.IO;
 using IOPath = System.IO.Path;
 using System.Text.Json;
+using System.Text;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
@@ -20,12 +22,13 @@ public partial class MainWindow : Window
 {
     private const int BoardWidth = 10;
     private const int BoardHeight = 20;
-    private const string AdManagerPassword = "12345";
+    private const string DefaultAdminPassword = "admin";
+    private const int HighscoreMaxEntries = 100;
 
-    private readonly Brush?[,] _board = new Brush?[BoardHeight, BoardWidth];
+    private readonly GameEngine _engine = new(BoardWidth, BoardHeight);
     private readonly Random _random = new();
     private readonly DispatcherTimer _timer;
-    private readonly List<ScoreEntry> _highScores = [];
+    private readonly Dictionary<GameMode, List<ScoreEntry>> _highScoresByMode = [];
     private readonly ObservableCollection<AdEntry> _ads = [];
     private readonly DispatcherTimer _adTimer;
     private readonly DispatcherTimer _visualFxTimer;
@@ -35,6 +38,8 @@ public partial class MainWindow : Window
     private readonly string _adManifestPath;
     private readonly string _settingsPath;
     private readonly string _highScoresPath;
+    private readonly string _sessionHistoryPath;
+    private readonly string _onboardingPath;
 
     private static readonly JsonSerializerOptions JsonWriteOptions = new() { WriteIndented = true };
     private const int MinAdSeconds = 2;
@@ -42,15 +47,13 @@ public partial class MainWindow : Window
     private const double MaxMusicOutputVolume = 0.18;
     private const double MaxEffectsOutputVolume = 0.30;
     private const int MaxLockResetsPerPiece = 8;
+    private const int LockImpactParticleCount = 24;
 
     private int _defaultAdDurationSeconds = 10;
     private int _rotationIntervalSeconds = 1;
     private AdOrderMode _adOrderMode = AdOrderMode.Sequential;
 
-    private Tetromino _currentPiece = null!;
     private Tetromino _nextPiece = null!;
-    private int _currentX;
-    private int _currentY;
     private int _score;
     private int _linesCleared;
     private bool _gameOver;
@@ -58,20 +61,60 @@ public partial class MainWindow : Window
     private bool _isPaused;
     private bool _isLoadingSettings = true;
     private int _startLevel;
-    private bool _isSurvivalMode;
+    private GameMode _activeGameMode = GameMode.Classic;
+    private GameMode _selectedHighscoreMode = GameMode.Classic;
     private int _survivalTickCounter;
-    private int _groundedTicks;
-    private int _lockResetsUsed;
+    private readonly Stopwatch _ultraStopwatch = new();
+    private readonly Stopwatch _inputStopwatch = Stopwatch.StartNew();
+    private readonly Stopwatch _sessionStopwatch = new();
     private double _cellSize = 36;
     private bool _isFadeThemeActive;
     private bool _isHighscoreUnlocked;
 
     private readonly MediaPlayer _backgroundMusicPlayer = new();
     private readonly Dictionary<string, Uri> _soundUris;
+    private readonly List<SessionHistoryEntry> _sessionHistory = [];
+    private OnboardingState _onboardingState = new(false, string.Empty);
+    private int _tutorialStepIndex;
+    private const string CurrentWhatsNewVersion = "1.2.0";
+    private const string WhatsNewMessage = "• Ustawienia dostały nowe przełączniki (HUD statystyk, muzyka, efekty) z opisami.\n• Dodano zmianę hasła administratora (domyślnie: admin).\n• Ranking rozszerzono do TOP 100 na tryb.";
+    private static readonly string[] TutorialSteps =
+    [
+        "1/4 Ruch: ←/→ przesuwają klocek, ↑ obraca, Spacja robi hard drop.",
+        "2/4 Hold: klawisz C odkłada klocek do HOLD i zamienia go później.",
+        "3/4 Tryby: Sprint (40 linii), Ultra (120s), Marathon i Survival mają osobne rankingi.",
+        "4/4 Ustawienia: możesz zmienić klawisze, DAS/ARR i włączyć tryb daltonistyczny."
+    ];
+
     private readonly Dictionary<string, MediaPlayer> _effectPlayers = new();
 
     private double _effectsVolume = 0.8;
     private double _musicVolume = 0.6;
+    private Tetromino? _holdPiece;
+    private bool _holdUsedThisTurn;
+    private int _dasMs = 140;
+    private int _arrMs = 45;
+    private Key _moveLeftKey = Key.Left;
+    private Key _moveRightKey = Key.Right;
+    private Key _softDropKey = Key.Down;
+    private Key _rotateKey = Key.Up;
+    private Key _hardDropKey = Key.Space;
+    private Key _holdKey = Key.C;
+    private int _horizontalDirection;
+    private long _horizontalPressedAtMs;
+    private long _lastHorizontalRepeatMs;
+    private bool _softDropPressed;
+    private int _piecesLocked;
+    private int _playerActions;
+    private int _tetrisLineClears;
+    private long _totalLockDelayMs;
+    private int _lockSamples;
+    private long? _groundContactStartedMs;
+    private bool _colorblindMode;
+    private bool _showSessionStats = true;
+    private bool _musicEnabled = true;
+    private bool _effectsEnabled = true;
+    private string _adminPassword = DefaultAdminPassword;
 
 
     private Color _emptyCellColor = Color.FromRgb(12, 20, 38);
@@ -97,7 +140,47 @@ public partial class MainWindow : Window
         Color.FromRgb(153, 102, 255)
     ];
 
+    private static readonly Color[] ColorblindPalette =
+    [
+        Color.FromRgb(0, 114, 178), Color.FromRgb(213, 94, 0), Color.FromRgb(0, 158, 115),
+        Color.FromRgb(204, 121, 167), Color.FromRgb(230, 159, 0), Color.FromRgb(86, 180, 233),
+        Color.FromRgb(240, 228, 66)
+    ];
+
+    private static readonly string[] PieceSymbols = ["I", "J", "L", "O", "S", "T", "Z"];
+
     private Brush[] _activePaletteBrushes = [];
+
+    private Brush?[,] _board => _engine.Board;
+    private Tetromino _currentPiece
+    {
+        get => _engine.CurrentPiece;
+        set => _engine.CurrentPiece = value;
+    }
+
+    private int _currentX
+    {
+        get => _engine.CurrentX;
+        set => _engine.CurrentX = value;
+    }
+
+    private int _currentY
+    {
+        get => _engine.CurrentY;
+        set => _engine.CurrentY = value;
+    }
+
+    private int _groundedTicks
+    {
+        get => _engine.GroundedTicks;
+        set => _engine.GroundedTicks = value;
+    }
+
+    private int _lockResetsUsed
+    {
+        get => _engine.LockResetsUsed;
+        set => _engine.LockResetsUsed = value;
+    }
 
     private static readonly Point[][] PieceDefinitions =
     [
@@ -124,6 +207,7 @@ public partial class MainWindow : Window
             {
                 Draw();
                 DrawNextPiece();
+                DrawHoldPiece();
             }
         };
 
@@ -131,6 +215,8 @@ public partial class MainWindow : Window
         _adManifestPath = IOPath.Combine(_adStorageFolder, "ads.json");
         _settingsPath = IOPath.Combine(_adStorageFolder, "settings.json");
         _highScoresPath = IOPath.Combine(_adStorageFolder, "highscores.json");
+        _sessionHistoryPath = IOPath.Combine(_adStorageFolder, "session-history.json");
+        _onboardingPath = IOPath.Combine(_adStorageFolder, "onboarding.json");
         _soundUris = CreateSoundUriMap();
         InitializeEffectPlayers();
         _backgroundMusicPlayer.MediaEnded += (_, _) =>
@@ -147,14 +233,19 @@ public partial class MainWindow : Window
         EnsureAdStorage();
         LoadAds();
         LoadHighScores();
+        LoadSessionHistory();
         LoadSettings();
+        LoadOnboardingState();
         ApplyLoadedGlobalSettingsToUi();
+        ApplyControlSettingsToUi();
         ApplyTheme();
         UpdateBoardLayout();
         Draw();
         RotateAds();
         _adTimer.Start();
         _isLoadingSettings = false;
+        DrawTrendChart();
+        ShowOnboardingIfNeeded();
     }
 
     private Dictionary<string, Uri> CreateSoundUriMap()
@@ -195,7 +286,7 @@ public partial class MainWindow : Window
 
     private void PlayEffect(string soundKey)
     {
-        if (_effectsVolume <= 0.001 || !_effectPlayers.TryGetValue(soundKey, out var player))
+        if (!_effectsEnabled || _effectsVolume <= 0.001 || !_effectPlayers.TryGetValue(soundKey, out var player))
         {
             return;
         }
@@ -207,7 +298,7 @@ public partial class MainWindow : Window
 
     private void PlayBackgroundMusic()
     {
-        if (_musicVolume <= 0.001)
+        if (!_musicEnabled || _musicVolume <= 0.001)
         {
             return;
         }
@@ -247,7 +338,7 @@ public partial class MainWindow : Window
         _musicVolume = Math.Clamp(e.NewValue, 0, 1);
         _backgroundMusicPlayer.Volume = ScaleVolume(_musicVolume, MaxMusicOutputVolume);
 
-        if (_musicVolume <= 0.001)
+        if (!_musicEnabled || _musicVolume <= 0.001)
         {
             StopBackgroundMusic();
             return;
@@ -266,6 +357,25 @@ public partial class MainWindow : Window
 
     private void ApplyTheme()
     {
+        _colorblindMode = ColorblindModeCheckBox.IsChecked == true;
+
+        if (_colorblindMode)
+        {
+            _isFadeThemeActive = false;
+            _visualFxTimer.Stop();
+            ClearFadeAccentEffects();
+            _activePaletteBrushes = ColorblindPalette.Select(c => (Brush)new SolidColorBrush(c)).ToArray();
+            Background = new SolidColorBrush(Color.FromRgb(8, 10, 20));
+            _emptyCellColor = Color.FromRgb(18, 22, 34);
+            SetCardTheme(Color.FromRgb(12, 18, 30), Color.FromRgb(74, 98, 122), Color.FromRgb(236, 242, 248));
+            AdBorder.Background = new SolidColorBrush(Color.FromRgb(14, 24, 38));
+            AdBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(80, 110, 140));
+            BoardBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(80, 110, 140));
+            BoardBorder.Background = new SolidColorBrush(Color.FromRgb(8, 12, 22));
+            Draw();
+            return;
+        }
+
         _isFadeThemeActive = ThemeComboBox.SelectedIndex == 2;
         if (_isFadeThemeActive)
         {
@@ -379,7 +489,8 @@ public partial class MainWindow : Window
         ApplyGlowToBorder(ScoreCard, 6, 16, 0.65);
         ApplyGlowToBorder(LevelCard, 7, 16, 0.65);
         ApplyGlowToBorder(NextCard, 8, 16, 0.65);
-        ApplyGlowToBorder(StatusCard, 9, 16, 0.65);
+        ApplyGlowToBorder(HoldCard, 9, 16, 0.65);
+        ApplyGlowToBorder(StatusCard, 10, 16, 0.65);
     }
 
     private void ApplyGlowToBorder(Border target, int phase, double blurRadius, double opacity)
@@ -418,7 +529,7 @@ public partial class MainWindow : Window
 
     private void ClearFadeAccentEffects()
     {
-        foreach (var border in (Border[])[BoardBorder, AdBorder, AdSlotTopBorder, AdSlotMiddleBorder, AdSlotBottomBorder, NickCard, ScoreCard, LevelCard, NextCard, StatusCard])
+        foreach (var border in (Border[])[BoardBorder, AdBorder, AdSlotTopBorder, AdSlotMiddleBorder, AdSlotBottomBorder, NickCard, ScoreCard, LevelCard, TimerCard, NextCard, HoldCard, StatusCard])
         {
             border.Effect = null;
         }
@@ -429,7 +540,7 @@ public partial class MainWindow : Window
         var borderBrush = new SolidColorBrush(border);
         var titleBrush = new SolidColorBrush(titleColor);
 
-        foreach (var card in (Border[])[NickCard, ScoreCard, LevelCard, NextCard, StatusCard])
+        foreach (var card in (Border[])[NickCard, ScoreCard, LevelCard, TimerCard, NextCard, HoldCard, StatusCard])
         {
             card.Background = bgBrush;
             card.BorderBrush = borderBrush;
@@ -442,7 +553,7 @@ public partial class MainWindow : Window
 
     private void StartNewGame()
     {
-        Array.Clear(_board);
+        _engine.ResetBoard();
         _score = 0;
         _linesCleared = 0;
         _gameOver = false;
@@ -451,6 +562,10 @@ public partial class MainWindow : Window
         _survivalTickCounter = 0;
         _groundedTicks = 0;
         _lockResetsUsed = 0;
+        _holdPiece = null;
+        _holdUsedThisTurn = false;
+        _horizontalDirection = 0;
+        _softDropPressed = false;
         GameOverOverlay.Visibility = Visibility.Collapsed;
         PauseOverlay.Visibility = Visibility.Collapsed;
 
@@ -460,7 +575,22 @@ public partial class MainWindow : Window
             2 => 8,
             _ => 1
         };
-        _isSurvivalMode = GameModeComboBox.SelectedIndex == 1;
+        _activeGameMode = (GameMode)Math.Clamp(GameModeComboBox.SelectedIndex, 0, 4);
+        _selectedHighscoreMode = _activeGameMode;
+        HighscoreModeComboBox.SelectedIndex = (int)_selectedHighscoreMode;
+        _ultraStopwatch.Reset();
+        _sessionStopwatch.Reset();
+        _sessionStopwatch.Start();
+        _piecesLocked = 0;
+        _playerActions = 0;
+        _tetrisLineClears = 0;
+        _totalLockDelayMs = 0;
+        _lockSamples = 0;
+        _groundContactStartedMs = null;
+        if (_activeGameMode == GameMode.Ultra)
+        {
+            _ultraStopwatch.Start();
+        }
 
         var nick = NickTextBox.Text.Trim();
         PlayerNameText.Text = string.IsNullOrWhiteSpace(nick) ? "Gracz" : nick;
@@ -477,8 +607,10 @@ public partial class MainWindow : Window
 
     private void SetTimerSpeed()
     {
-        var level = _startLevel + (_linesCleared / 8);
-        var speedMs = Math.Max(30, 620 - (level - 1) * 85);
+        var level = _startLevel + (_linesCleared / (_activeGameMode == GameMode.Marathon ? 10 : 8));
+        var speedMs = _activeGameMode == GameMode.Marathon
+            ? Math.Max(65, 780 - (level - 1) * 50)
+            : Math.Max(30, 620 - (level - 1) * 85);
         _timer.Interval = TimeSpan.FromMilliseconds(speedMs);
     }
 
@@ -495,13 +627,18 @@ public partial class MainWindow : Window
             return;
         }
 
+        HandleHorizontalRepeat();
+        HandleSoftDropRepeat();
+
         if (TryMove(_currentX, _currentY + 1, _currentPiece.Cells))
         {
             _groundedTicks = 0;
             _lockResetsUsed = 0;
+            _groundContactStartedMs = null;
         }
         else
         {
+            _groundContactStartedMs ??= _sessionStopwatch.ElapsedMilliseconds;
             _groundedTicks++;
             if (_groundedTicks >= GetLockDelayTicks())
             {
@@ -517,7 +654,7 @@ public partial class MainWindow : Window
             }
         }
 
-        if (_isSurvivalMode)
+        if (_activeGameMode == GameMode.Survival)
         {
             _survivalTickCounter++;
             var interval = Math.Max(6, 22 - (_linesCleared / 6));
@@ -532,27 +669,89 @@ public partial class MainWindow : Window
             }
         }
 
+        if (_activeGameMode == GameMode.Ultra)
+        {
+            var ultraElapsedMs = (int)_ultraStopwatch.ElapsedMilliseconds;
+            if (ultraElapsedMs >= 120000)
+            {
+                FinishGame("ULTRA ZAKOŃCZONE • Spacja: menu start • Esc: zamknij");
+                return;
+            }
+        }
+
+        UpdateHud();
         Draw();
+    }
+
+    private void HandleHorizontalRepeat()
+    {
+        if (_horizontalDirection == 0)
+        {
+            return;
+        }
+
+        var nowMs = _inputStopwatch.ElapsedMilliseconds;
+        if (nowMs - _horizontalPressedAtMs < _dasMs)
+        {
+            return;
+        }
+
+        if (_arrMs > 0 && nowMs - _lastHorizontalRepeatMs < _arrMs)
+        {
+            return;
+        }
+
+        var moved = TryMove(_currentX + _horizontalDirection, _currentY, _currentPiece.Cells);
+        if (moved)
+        {
+            RefreshLockDelayAfterPlayerAction(true);
+            _playerActions++;
+        }
+
+        _lastHorizontalRepeatMs = nowMs;
+    }
+
+    private void HandleSoftDropRepeat()
+    {
+        if (!_softDropPressed)
+        {
+            return;
+        }
+
+        if (TryMove(_currentX, _currentY + 1, _currentPiece.Cells))
+        {
+            _groundedTicks = 0;
+            _lockResetsUsed = 0;
+            _playerActions++;
+        }
     }
 
     private void SpawnPiece()
     {
         _currentPiece = _nextPiece;
         _nextPiece = CreateRandomPiece();
+        _holdUsedThisTurn = false;
         _currentX = BoardWidth / 2 - 2;
         _currentY = 0;
         _groundedTicks = 0;
         _lockResetsUsed = 0;
+        _groundContactStartedMs = null;
 
-        if (!IsPositionValid(_currentX, _currentY, _currentPiece.Cells))
+        if (_engine.IsGameOverOnSpawn(_currentX, _currentY, _currentPiece.Cells))
         {
             OnGameOver();
         }
 
         DrawNextPiece();
+        DrawHoldPiece();
     }
 
     private void OnGameOver()
+    {
+        FinishGame("PRZEGRAŁEŚ • Spacja: menu start • Esc: zamknij", true);
+    }
+
+    private void FinishGame(string statusText, bool playDefeatSound = false)
     {
         if (_gameOver)
         {
@@ -561,21 +760,41 @@ public partial class MainWindow : Window
 
         _gameOver = true;
         _timer.Stop();
+        _ultraStopwatch.Stop();
+        _sessionStopwatch.Stop();
         StopBackgroundMusic();
-        PlayEffect("defeat");
+        if (playDefeatSound)
+        {
+            PlayEffect("defeat");
+        }
+
+        CaptureSessionResult();
         RegisterScore();
         GameOverOverlay.Visibility = Visibility.Visible;
-        StatusText.Text = "PRZEGRAŁEŚ • Spacja: menu start • Esc: zamknij";
+        StatusText.Text = statusText;
+    }
+
+    private List<ScoreEntry> GetHighScoresForMode(GameMode mode)
+    {
+        if (_highScoresByMode.TryGetValue(mode, out var scores))
+        {
+            return scores;
+        }
+
+        scores = [];
+        _highScoresByMode[mode] = scores;
+        return scores;
     }
 
     private void RegisterScore()
     {
         var nick = string.IsNullOrWhiteSpace(PlayerNameText.Text) ? "Gracz" : PlayerNameText.Text;
-        _highScores.Add(new ScoreEntry(nick, _score));
-        _highScores.Sort((a, b) => b.Points.CompareTo(a.Points));
-        if (_highScores.Count > 5)
+        var modeScores = GetHighScoresForMode(_activeGameMode);
+        modeScores.Add(new ScoreEntry(nick, _score));
+        modeScores.Sort((a, b) => b.Points.CompareTo(a.Points));
+        if (modeScores.Count > HighscoreMaxEntries)
         {
-            _highScores.RemoveRange(5, _highScores.Count - 5);
+            modeScores.RemoveRange(HighscoreMaxEntries, modeScores.Count - HighscoreMaxEntries);
         }
 
         RefreshHighScores();
@@ -584,12 +803,20 @@ public partial class MainWindow : Window
 
     private void RefreshHighScores()
     {
+        if (StartHighScoresListBox is null)
+        {
+            return;
+        }
+
         StartHighScoresListBox.Items.Clear();
 
-        for (var i = 0; i < 5; i++)
+        var modeScores = GetHighScoresForMode(_selectedHighscoreMode);
+
+        var rowCount = Math.Max(5, Math.Min(HighscoreMaxEntries, modeScores.Count));
+        for (var i = 0; i < rowCount; i++)
         {
-            var hasEntry = i < _highScores.Count;
-            var entry = hasEntry ? _highScores[i] : new ScoreEntry("---", 0);
+            var hasEntry = i < modeScores.Count;
+            var entry = hasEntry ? modeScores[i] : new ScoreEntry("---", 0);
 
             var rankText = new TextBlock
             {
@@ -705,71 +932,29 @@ public partial class MainWindow : Window
 
     private Tetromino CreateRandomPiece()
     {
-        var index = _random.Next(PieceDefinitions.Length);
+        var index = _engine.DrawNextPieceIndex(PieceDefinitions.Length);
         var shape = PieceDefinitions[index].Select(p => new Point(p.X, p.Y)).ToArray();
         return new Tetromino(shape, _activePaletteBrushes[index], index == 3);
     }
 
     private bool TryMove(int newX, int newY, Point[] cells)
     {
-        if (!IsPositionValid(newX, newY, cells))
-        {
-            return false;
-        }
-
-        _currentX = newX;
-        _currentY = newY;
-        return true;
+        return _engine.TryMove(newX, newY, cells);
     }
 
     private bool IsPositionValid(int x, int y, Point[] cells)
     {
-        foreach (var cell in cells)
-        {
-            var boardX = x + (int)cell.X;
-            var boardY = y + (int)cell.Y;
-
-            if (boardX < 0 || boardX >= BoardWidth || boardY < 0 || boardY >= BoardHeight)
-            {
-                return false;
-            }
-
-            if (_board[boardY, boardX] is not null)
-            {
-                return false;
-            }
-        }
-
-        return true;
+        return _engine.IsPositionValid(x, y, cells);
     }
 
     private void AddGarbageRow()
     {
-        var holeX = _random.Next(BoardWidth);
-
-        for (var y = 0; y < BoardHeight - 1; y++)
+        if (_engine.AddGarbageRow(_random.Next(BoardWidth)))
         {
-            for (var x = 0; x < BoardWidth; x++)
-            {
-                _board[y, x] = _board[y + 1, x];
-            }
+            return;
         }
 
-        for (var x = 0; x < BoardWidth; x++)
-        {
-            _board[BoardHeight - 1, x] = x == holeX ? null : Brushes.DimGray;
-        }
-
-        if (!IsPositionValid(_currentX, _currentY, _currentPiece.Cells))
-        {
-            if (TryMove(_currentX, _currentY - 1, _currentPiece.Cells))
-            {
-                _groundedTicks = 0;
-                return;
-            }
-
-            OnGameOver();
-        }
+        OnGameOver();
     }
 
     private void RefreshLockDelayAfterPlayerAction(bool actionApplied)
@@ -790,31 +975,12 @@ public partial class MainWindow : Window
 
     private bool IsCurrentPieceGrounded()
     {
-        return !IsPositionValid(_currentX, _currentY + 1, _currentPiece.Cells);
+        return _engine.IsCurrentPieceGrounded();
     }
 
     private bool RotateCurrentPiece()
     {
-        if (_currentPiece.IsSquare)
-        {
-            return false;
-        }
-
-        var rotated = _currentPiece.Cells.Select(p => new Point(2 - p.Y, p.X)).ToArray();
-        int[] offsets = [0, -1, 1, -2, 2];
-        foreach (var offset in offsets)
-        {
-            if (!IsPositionValid(_currentX + offset, _currentY, rotated))
-            {
-                continue;
-            }
-
-            _currentX += offset;
-            _currentPiece = _currentPiece with { Cells = rotated };
-            return true;
-        }
-
-        return false;
+        return _engine.RotateCurrentPiece();
     }
 
     private void HardDrop()
@@ -836,54 +1002,86 @@ public partial class MainWindow : Window
 
     private void LockPiece()
     {
-        foreach (var cell in _currentPiece.Cells)
+        EmitLockImpactParticles();
+        _engine.LockPiece();
+        RegisterPieceLockStats();
+    }
+
+    private void EmitLockImpactParticles()
+    {
+        if (EffectCanvas is null || _currentPiece is null)
         {
-            var boardX = _currentX + (int)cell.X;
-            var boardY = _currentY + (int)cell.Y;
-            if (boardY >= 0 && boardY < BoardHeight && boardX >= 0 && boardX < BoardWidth)
-            {
-                _board[boardY, boardX] = _currentPiece.Color;
-            }
+            return;
         }
+
+        var contactCells = _currentPiece.Cells
+            .Where(cell =>
+            {
+                var boardY = _currentY + (int)cell.Y;
+                return !_engine.IsPositionValid(_currentX, _currentY + 1, new[] { cell }) || boardY == BoardHeight - 1;
+            })
+            .Select(cell => new Point(_currentX + cell.X + 0.5, _currentY + cell.Y + 1))
+            .ToList();
+
+        if (contactCells.Count == 0)
+        {
+            contactCells = _currentPiece.Cells
+                .Select(cell => new Point(_currentX + cell.X + 0.5, _currentY + cell.Y + 1))
+                .ToList();
+        }
+
+        var color = (_currentPiece.Color as SolidColorBrush)?.Color ?? Colors.White;
+        var rnd = _random;
+
+        for (var i = 0; i < LockImpactParticleCount; i++)
+        {
+            var origin = contactCells[rnd.Next(contactCells.Count)];
+            var size = _cellSize * (0.06 + rnd.NextDouble() * 0.14);
+            var particle = new Ellipse
+            {
+                Width = size,
+                Height = size,
+                Fill = new SolidColorBrush(Color.FromArgb(220, color.R, color.G, color.B)),
+                IsHitTestVisible = false
+            };
+
+            var startX = origin.X * _cellSize + (rnd.NextDouble() - 0.5) * (_cellSize * 0.4);
+            var startY = origin.Y * _cellSize - size;
+            Canvas.SetLeft(particle, startX);
+            Canvas.SetTop(particle, startY);
+            EffectCanvas.Children.Add(particle);
+
+            var endX = startX + (rnd.NextDouble() - 0.5) * (_cellSize * 1.2);
+            var endY = startY + rnd.NextDouble() * (_cellSize * 0.9) + (_cellSize * 0.25);
+
+            var moveX = new DoubleAnimation(startX, endX, TimeSpan.FromMilliseconds(180 + rnd.Next(140)));
+            var moveY = new DoubleAnimation(startY, endY, TimeSpan.FromMilliseconds(200 + rnd.Next(160)));
+            var fade = new DoubleAnimation(0.95, 0, TimeSpan.FromMilliseconds(220 + rnd.Next(140)));
+            fade.Completed += (_, _) => EffectCanvas.Children.Remove(particle);
+
+            particle.BeginAnimation(OpacityProperty, fade);
+            particle.BeginAnimation(Canvas.LeftProperty, moveX);
+            particle.BeginAnimation(Canvas.TopProperty, moveY);
+        }
+    }
+
+    private void RegisterPieceLockStats()
+    {
+        _piecesLocked++;
+        if (_groundContactStartedMs is null)
+        {
+            return;
+        }
+
+        var lockDelay = Math.Max(0, _sessionStopwatch.ElapsedMilliseconds - _groundContactStartedMs.Value);
+        _totalLockDelayMs += lockDelay;
+        _lockSamples++;
+        _groundContactStartedMs = null;
     }
 
     private List<int> ClearFullLines()
     {
-        List<int> removedRows = [];
-
-        for (var y = BoardHeight - 1; y >= 0; y--)
-        {
-            var isFull = true;
-            for (var x = 0; x < BoardWidth; x++)
-            {
-                if (_board[y, x] is null)
-                {
-                    isFull = false;
-                    break;
-                }
-            }
-
-            if (!isFull)
-            {
-                continue;
-            }
-
-            removedRows.Add(y);
-            for (var pullY = y; pullY > 0; pullY--)
-            {
-                for (var x = 0; x < BoardWidth; x++)
-                {
-                    _board[pullY, x] = _board[pullY - 1, x];
-                }
-            }
-
-            for (var x = 0; x < BoardWidth; x++)
-            {
-                _board[0, x] = null;
-            }
-
-            y++;
-        }
+        List<int> removedRows = _engine.ClearFullLines();
 
         if (removedRows.Count == 0)
         {
@@ -891,19 +1089,22 @@ public partial class MainWindow : Window
         }
 
         _linesCleared += removedRows.Count;
-        _score += removedRows.Count switch
+        _score += GameEngine.CalculateScoreForClearedLines(removedRows.Count);
+        if (removedRows.Count == 4)
         {
-            1 => 120,
-            2 => 360,
-            3 => 700,
-            4 => 1100,
-            _ => removedRows.Count * 250
-        };
+            _tetrisLineClears++;
+        }
 
         SetTimerSpeed();
         UpdateHud();
         AnimateScorePulse();
         PlayEffect("lineClear");
+
+        if (_activeGameMode == GameMode.Sprint && _linesCleared >= 40)
+        {
+            FinishGame("SPRINT UKOŃCZONY • Spacja: menu start • Esc: zamknij");
+        }
+
         return removedRows;
     }
 
@@ -952,18 +1153,43 @@ public partial class MainWindow : Window
 
     private void UpdateHud()
     {
-        var level = _startLevel + (_linesCleared / 8);
-        var best = _highScores.Count == 0 ? 0 : _highScores.Max(h => h.Points);
+        var level = _startLevel + (_linesCleared / (_activeGameMode == GameMode.Marathon ? 10 : 8));
+        var activeModeScores = GetHighScoresForMode(_activeGameMode);
+        var best = activeModeScores.Count == 0 ? 0 : activeModeScores.Max(h => h.Points);
         ScoreText.Text = _score.ToString();
         BestScoreText.Text = $"BEST: {best}";
         LevelText.Text = level.ToString();
 
+        var ultraElapsedSeconds = (int)_ultraStopwatch.Elapsed.TotalSeconds;
+        var sessionSeconds = Math.Max(1d, _sessionStopwatch.Elapsed.TotalSeconds);
+        var apm = _playerActions * 60d / sessionSeconds;
+        var pps = _piecesLocked / sessionSeconds;
+        var averageLockDelay = _lockSamples == 0 ? 0 : (int)Math.Round((double)_totalLockDelayMs / _lockSamples);
+        var timerText = _activeGameMode switch
+        {
+            GameMode.Sprint => $"{Math.Max(0, 40 - _linesCleared)} linii",
+            GameMode.Ultra => TimeSpan.FromSeconds(Math.Max(0, 120 - ultraElapsedSeconds)).ToString(@"mm\:ss"),
+            GameMode.Marathon => $"Lvl+ {Math.Max(0, 10 - (_linesCleared % 10))} linii",
+            _ => "--:--"
+        };
+        ModeTimerText.Text = timerText;
+        SessionStatsCard.Visibility = _showSessionStats ? Visibility.Visible : Visibility.Collapsed;
+        SessionStatsText.Text = $"APM: {apm:0.0} • PPS: {pps:0.00} • Lock: {averageLockDelay}ms • Tetris: {_tetrisLineClears}";
+        DrawTrendChart();
+
         if (!_gameOver)
         {
-            var modeText = _isSurvivalMode ? "SURVIVAL" : "KLASYCZNY";
+            var modeText = _activeGameMode switch
+            {
+                GameMode.Survival => "SURVIVAL",
+                GameMode.Sprint => "SPRINT 40",
+                GameMode.Ultra => $"ULTRA {timerText}",
+                GameMode.Marathon => "MARATHON",
+                _ => "KLASYCZNY"
+            };
             StatusText.Text = _isPaused
                 ? "PAUZA • P: wznów • Esc"
-                : $"{modeText} • Strzałki: ruch/obrót • Spacja: zrzut • P: pauza • Esc";
+                : $"{modeText} • {_moveLeftKey}/{_moveRightKey}: ruch • {_rotateKey}: obrót • {_hardDropKey}: zrzut • {_holdKey}: hold • P: pauza • Esc";
         }
     }
 
@@ -1011,11 +1237,7 @@ public partial class MainWindow : Window
 
     private void DrawGhostPiece()
     {
-        var ghostY = _currentY;
-        while (IsPositionValid(_currentX, ghostY + 1, _currentPiece.Cells))
-        {
-            ghostY++;
-        }
+        var ghostY = _engine.CalculateGhostY();
 
         if (ghostY == _currentY)
         {
@@ -1047,6 +1269,68 @@ public partial class MainWindow : Window
         Canvas.SetLeft(rect, x * _cellSize + 1);
         Canvas.SetTop(rect, y * _cellSize + 1);
         GameCanvas.Children.Add(rect);
+
+        if (!_colorblindMode || opacity < 0.45)
+        {
+            return;
+        }
+
+        var pieceIndex = GetPieceIndexForBrush(brush);
+        if (pieceIndex < 0 || pieceIndex >= PieceSymbols.Length)
+        {
+            return;
+        }
+
+        DrawPatternOverlay(x, y, pieceIndex);
+    }
+
+    private int GetPieceIndexForBrush(Brush brush)
+    {
+        for (var i = 0; i < _activePaletteBrushes.Length; i++)
+        {
+            if (ReferenceEquals(_activePaletteBrushes[i], brush))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    private void DrawPatternOverlay(int x, int y, int pieceIndex)
+    {
+        var left = x * _cellSize + 1;
+        var top = y * _cellSize + 1;
+        var size = _cellSize - 2;
+
+        var symbol = new TextBlock
+        {
+            Text = PieceSymbols[pieceIndex],
+            Width = size,
+            TextAlignment = TextAlignment.Center,
+            Foreground = Brushes.Black,
+            FontSize = Math.Max(10, size * 0.45),
+            FontWeight = FontWeights.Bold,
+            Opacity = 0.6
+        };
+
+        Canvas.SetLeft(symbol, left);
+        Canvas.SetTop(symbol, top + size * 0.2);
+        GameCanvas.Children.Add(symbol);
+
+        var stroke = new SolidColorBrush(Color.FromArgb(170, 255, 255, 255));
+        if (pieceIndex % 3 == 0)
+        {
+            GameCanvas.Children.Add(new Line { X1 = left + 2, Y1 = top + 2, X2 = left + size - 2, Y2 = top + size - 2, Stroke = stroke, StrokeThickness = 1.5 });
+        }
+        else if (pieceIndex % 3 == 1)
+        {
+            GameCanvas.Children.Add(new Line { X1 = left + size - 2, Y1 = top + 2, X2 = left + 2, Y2 = top + size - 2, Stroke = stroke, StrokeThickness = 1.5 });
+        }
+        else
+        {
+            GameCanvas.Children.Add(new Line { X1 = left + 2, Y1 = top + size * 0.5, X2 = left + size - 2, Y2 = top + size * 0.5, Stroke = stroke, StrokeThickness = 1.5 });
+        }
     }
 
     private void DrawNextPiece()
@@ -1077,6 +1361,77 @@ public partial class MainWindow : Window
             Canvas.SetTop(rect, cell.Y * previewCell + 16);
             NextPieceCanvas.Children.Add(rect);
         }
+    }
+
+    private void DrawHoldPiece()
+    {
+        HoldPieceCanvas.Children.Clear();
+
+        if (_holdPiece is null)
+        {
+            return;
+        }
+
+        const double previewCell = 24;
+        foreach (var cell in _holdPiece.Cells)
+        {
+            var rect = new Rectangle
+            {
+                Width = previewCell,
+                Height = previewCell,
+                RadiusX = 5,
+                RadiusY = 5,
+                Fill = _holdPiece.Color,
+                Stroke = Brushes.Black,
+                StrokeThickness = 1
+            };
+
+            Canvas.SetLeft(rect, cell.X * previewCell + 18);
+            Canvas.SetTop(rect, cell.Y * previewCell + 16);
+            HoldPieceCanvas.Children.Add(rect);
+        }
+    }
+
+    private void HoldCurrentPiece()
+    {
+        if (_holdUsedThisTurn)
+        {
+            return;
+        }
+
+        var previousHold = _holdPiece;
+        _holdPiece = ClonePiece(_currentPiece);
+        _holdUsedThisTurn = true;
+
+        if (previousHold is null)
+        {
+            _currentPiece = _nextPiece;
+            _nextPiece = CreateRandomPiece();
+        }
+        else
+        {
+            _currentPiece = ClonePiece(previousHold);
+        }
+
+        _currentX = BoardWidth / 2 - 2;
+        _currentY = 0;
+        _groundedTicks = 0;
+        _lockResetsUsed = 0;
+
+        if (!IsPositionValid(_currentX, _currentY, _currentPiece.Cells))
+        {
+            OnGameOver();
+            return;
+        }
+
+        DrawNextPiece();
+        DrawHoldPiece();
+    }
+
+    private static Tetromino ClonePiece(Tetromino piece)
+    {
+        var clonedCells = piece.Cells.Select(cell => new Point(cell.X, cell.Y)).ToArray();
+        return new Tetromino(clonedCells, piece.Color, piece.IsSquare);
     }
     private void Window_KeyDown(object sender, KeyEventArgs e)
     {
@@ -1121,46 +1476,92 @@ public partial class MainWindow : Window
             return;
         }
 
-        switch (e.Key)
+        if (e.Key == _moveLeftKey || e.Key == _moveRightKey)
         {
-            case Key.Left:
+            var direction = e.Key == _moveLeftKey ? -1 : 1;
+            _horizontalDirection = direction;
+            _horizontalPressedAtMs = _inputStopwatch.ElapsedMilliseconds;
+            _lastHorizontalRepeatMs = _horizontalPressedAtMs;
+
+            if (!e.IsRepeat)
             {
-                var moved = TryMove(_currentX - 1, _currentY, _currentPiece.Cells);
+                var moved = TryMove(_currentX + direction, _currentY, _currentPiece.Cells);
                 RefreshLockDelayAfterPlayerAction(moved);
-                PlayEffect("rotate");
-                break;
-            }
-            case Key.Right:
-            {
-                var moved = TryMove(_currentX + 1, _currentY, _currentPiece.Cells);
-                RefreshLockDelayAfterPlayerAction(moved);
-                PlayEffect("rotate");
-                break;
-            }
-            case Key.Down:
-            {
-                var moved = TryMove(_currentX, _currentY + 1, _currentPiece.Cells);
                 if (moved)
                 {
-                    _groundedTicks = 0;
-                    _lockResetsUsed = 0;
+                    _playerActions++;
                 }
                 PlayEffect("rotate");
-                break;
             }
-            case Key.Up:
-            {
-                var rotated = RotateCurrentPiece();
-                RefreshLockDelayAfterPlayerAction(rotated);
-                PlayEffect("rotate");
-                break;
-            }
-            case Key.Space:
-                HardDrop();
-                return;
+
+            Draw();
+            return;
         }
 
-        Draw();
+        if (e.Key == _softDropKey)
+        {
+            _softDropPressed = true;
+            var moved = TryMove(_currentX, _currentY + 1, _currentPiece.Cells);
+            if (moved)
+            {
+                _groundedTicks = 0;
+                _lockResetsUsed = 0;
+                _playerActions++;
+                Draw();
+            }
+
+            return;
+        }
+
+        if (e.Key == _rotateKey)
+        {
+            var rotated = RotateCurrentPiece();
+            RefreshLockDelayAfterPlayerAction(rotated);
+            if (rotated)
+            {
+                _playerActions++;
+            }
+            PlayEffect("rotate");
+            Draw();
+            return;
+        }
+
+        if (e.Key == _hardDropKey)
+        {
+            _playerActions++;
+            HardDrop();
+            return;
+        }
+
+        if (e.Key == _holdKey)
+        {
+            _playerActions++;
+            HoldCurrentPiece();
+            Draw();
+            return;
+        }
+
+    }
+
+    private void Window_KeyUp(object sender, KeyEventArgs e)
+    {
+        if (e.Key == _moveLeftKey && _horizontalDirection < 0)
+        {
+            _horizontalDirection = Keyboard.IsKeyDown(_moveRightKey) ? 1 : 0;
+            _horizontalPressedAtMs = _inputStopwatch.ElapsedMilliseconds;
+            _lastHorizontalRepeatMs = _horizontalPressedAtMs;
+        }
+        else if (e.Key == _moveRightKey && _horizontalDirection > 0)
+        {
+            _horizontalDirection = Keyboard.IsKeyDown(_moveLeftKey) ? -1 : 0;
+            _horizontalPressedAtMs = _inputStopwatch.ElapsedMilliseconds;
+            _lastHorizontalRepeatMs = _horizontalPressedAtMs;
+        }
+
+        if (e.Key == _softDropKey)
+        {
+            _softDropPressed = false;
+        }
     }
 
     private void TogglePause()
@@ -1176,11 +1577,23 @@ public partial class MainWindow : Window
         if (_isPaused)
         {
             _timer.Stop();
+            if (_activeGameMode == GameMode.Ultra)
+            {
+                _ultraStopwatch.Stop();
+            }
+
+            _sessionStopwatch.Stop();
             StopBackgroundMusic();
         }
         else
         {
             _timer.Start();
+            if (_activeGameMode == GameMode.Ultra)
+            {
+                _ultraStopwatch.Start();
+            }
+
+            _sessionStopwatch.Start();
             PlayBackgroundMusic();
         }
 
@@ -1258,9 +1671,43 @@ public partial class MainWindow : Window
         return parsed == value;
     }
 
+    private static int ParseNonNegativeInt(string? text, int fallback)
+    {
+        return int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed) && parsed >= 0
+            ? parsed
+            : fallback;
+    }
+
+    private static Key ParseKey(string? keyText, Key fallback)
+    {
+        if (!string.IsNullOrWhiteSpace(keyText) && Enum.TryParse<Key>(keyText, true, out var parsed))
+        {
+            return parsed;
+        }
+
+        return fallback;
+    }
+
+    private void ApplyControlSettingsToUi()
+    {
+        DasTextBox.Text = _dasMs.ToString(CultureInfo.InvariantCulture);
+        ArrTextBox.Text = _arrMs.ToString(CultureInfo.InvariantCulture);
+        MoveLeftKeyTextBox.Text = _moveLeftKey.ToString();
+        MoveRightKeyTextBox.Text = _moveRightKey.ToString();
+        SoftDropKeyTextBox.Text = _softDropKey.ToString();
+        RotateKeyTextBox.Text = _rotateKey.ToString();
+        HardDropKeyTextBox.Text = _hardDropKey.ToString();
+        HoldKeyTextBox.Text = _holdKey.ToString();
+    }
+
     private void LoadHighScores()
     {
-        _highScores.Clear();
+        _highScoresByMode.Clear();
+        foreach (var mode in Enum.GetValues<GameMode>())
+        {
+            _highScoresByMode[mode] = [];
+        }
+
         if (!File.Exists(_highScoresPath))
         {
             RefreshHighScores();
@@ -1270,12 +1717,21 @@ public partial class MainWindow : Window
         try
         {
             var json = File.ReadAllText(_highScoresPath);
-            var entries = JsonSerializer.Deserialize<List<ScoreEntry>>(json) ?? [];
-            _highScores.AddRange(entries.OrderByDescending(e => e.Points).Take(5));
+            var parsed = HighscorePersistence.Parse(json, Enum.GetNames<GameMode>());
+            foreach (var mode in Enum.GetValues<GameMode>())
+            {
+                var key = mode.ToString();
+                _highScoresByMode[mode] = parsed.TryGetValue(key, out var entries)
+                    ? entries.Select(e => new ScoreEntry(e.Name, e.Points)).ToList()
+                    : [];
+            }
         }
         catch
         {
-            _highScores.Clear();
+            foreach (var mode in Enum.GetValues<GameMode>())
+            {
+                _highScoresByMode[mode] = [];
+            }
         }
 
         RefreshHighScores();
@@ -1283,7 +1739,11 @@ public partial class MainWindow : Window
 
     private void SaveHighScores()
     {
-        var json = JsonSerializer.Serialize(_highScores, JsonWriteOptions);
+        var modes = _highScoresByMode.ToDictionary(
+            pair => pair.Key.ToString(),
+            pair => pair.Value.Select(e => new ScoreEntryData(e.Name, e.Points)).ToList());
+
+        var json = HighscorePersistence.Serialize(modes, options: JsonWriteOptions);
         File.WriteAllText(_highScoresPath, json);
     }
 
@@ -1298,19 +1758,36 @@ public partial class MainWindow : Window
         try
         {
             var json = File.ReadAllText(_settingsPath);
-            var settings = JsonSerializer.Deserialize<GameSettings>(json);
-            if (settings is null)
-            {
-                return;
-            }
+            var settings = SettingsPersistence.DeserializeOrDefault(json, CreateDefaultSettings());
 
             _isLoadingSettings = true;
             NickTextBox.Text = string.IsNullOrWhiteSpace(settings.Nick) ? "Gracz" : settings.Nick;
             StartLevelComboBox.SelectedIndex = Math.Clamp(settings.StartLevelIndex, 0, 2);
-            GameModeComboBox.SelectedIndex = Math.Clamp(settings.GameModeIndex, 0, 1);
+            GameModeComboBox.SelectedIndex = Math.Clamp(settings.GameModeIndex, 0, 4);
             ThemeComboBox.SelectedIndex = Math.Clamp(settings.ThemeIndex, 0, 2);
+            ColorblindModeCheckBox.IsChecked = settings.ColorblindMode;
+            ShowSessionStatsCheckBox.IsChecked = settings.ShowSessionStats;
+            MusicEnabledCheckBox.IsChecked = settings.MusicEnabled;
+            EffectsEnabledCheckBox.IsChecked = settings.EffectsEnabled;
             MusicVolumeSlider.Value = Math.Clamp(settings.MusicVolume, 0, 1);
             EffectsVolumeSlider.Value = Math.Clamp(settings.EffectsVolume, 0, 1);
+            _dasMs = Math.Clamp(settings.DasMs, 0, 500);
+            _arrMs = Math.Clamp(settings.ArrMs, 0, 300);
+            _moveLeftKey = ParseKey(settings.MoveLeftKey, Key.Left);
+            _moveRightKey = ParseKey(settings.MoveRightKey, Key.Right);
+            _softDropKey = ParseKey(settings.SoftDropKey, Key.Down);
+            _rotateKey = ParseKey(settings.RotateKey, Key.Up);
+            _hardDropKey = ParseKey(settings.HardDropKey, Key.Space);
+            _holdKey = ParseKey(settings.HoldKey, Key.C);
+            _colorblindMode = settings.ColorblindMode;
+            _showSessionStats = settings.ShowSessionStats == true;
+            _musicEnabled = settings.MusicEnabled == true;
+            _effectsEnabled = settings.EffectsEnabled == true;
+            _adminPassword = string.IsNullOrWhiteSpace(settings.AdminPassword) ? DefaultAdminPassword : settings.AdminPassword;
+            AdminPasswordStatusText.Text = $"Hasło administratora ustawione (domyślne: {DefaultAdminPassword}).";
+            ApplyControlSettingsToUi();
+            SessionStatsCard.Visibility = _showSessionStats ? Visibility.Visible : Visibility.Collapsed;
+            ApplyAudioSettingsUi();
         }
         catch
         {
@@ -1324,15 +1801,43 @@ public partial class MainWindow : Window
 
     private void SaveSettings()
     {
+        _dasMs = Math.Clamp(ParseNonNegativeInt(DasTextBox.Text, _dasMs), 0, 500);
+        _arrMs = Math.Clamp(ParseNonNegativeInt(ArrTextBox.Text, _arrMs), 0, 300);
+        _moveLeftKey = ParseKey(MoveLeftKeyTextBox.Text, _moveLeftKey);
+        _moveRightKey = ParseKey(MoveRightKeyTextBox.Text, _moveRightKey);
+        _softDropKey = ParseKey(SoftDropKeyTextBox.Text, _softDropKey);
+        _rotateKey = ParseKey(RotateKeyTextBox.Text, _rotateKey);
+        _hardDropKey = ParseKey(HardDropKeyTextBox.Text, _hardDropKey);
+        _holdKey = ParseKey(HoldKeyTextBox.Text, _holdKey);
+        ApplyControlSettingsToUi();
+
+        _colorblindMode = ColorblindModeCheckBox.IsChecked == true;
+        _showSessionStats = ShowSessionStatsCheckBox.IsChecked == true;
+        _musicEnabled = MusicEnabledCheckBox.IsChecked == true;
+        _effectsEnabled = EffectsEnabledCheckBox.IsChecked == true;
+
         var settings = new GameSettings(
             NickTextBox.Text.Trim(),
             StartLevelComboBox.SelectedIndex,
             GameModeComboBox.SelectedIndex,
             ThemeComboBox.SelectedIndex,
             MusicVolumeSlider.Value,
-            EffectsVolumeSlider.Value);
+            EffectsVolumeSlider.Value,
+            _dasMs,
+            _arrMs,
+            _moveLeftKey.ToString(),
+            _moveRightKey.ToString(),
+            _softDropKey.ToString(),
+            _rotateKey.ToString(),
+            _hardDropKey.ToString(),
+            _holdKey.ToString(),
+            _colorblindMode,
+            _showSessionStats,
+            _musicEnabled,
+            _effectsEnabled,
+            _adminPassword);
 
-        var json = JsonSerializer.Serialize(settings, JsonWriteOptions);
+        var json = SettingsPersistence.Serialize(settings, JsonWriteOptions);
         File.WriteAllText(_settingsPath, json);
     }
 
@@ -1793,6 +2298,22 @@ public partial class MainWindow : Window
         ShowStartMenuSection(StartMenuSection.Settings);
     }
 
+    private void HighscoreModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        _selectedHighscoreMode = (GameMode)Math.Clamp(HighscoreModeComboBox.SelectedIndex, 0, 4);
+        RefreshHighScores();
+    }
+
+    private void GameModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (HighscoreModeComboBox is null)
+        {
+            return;
+        }
+
+        HighscoreModeComboBox.SelectedIndex = Math.Clamp(GameModeComboBox.SelectedIndex, 0, 4);
+    }
+
     private bool EnsureHighscoreUnlocked()
     {
         if (_isHighscoreUnlocked)
@@ -1807,7 +2328,7 @@ public partial class MainWindow : Window
     private void UnlockHighscoreActionsButton_Click(object sender, RoutedEventArgs e)
     {
         PlayEffect("buttonClick");
-        if (HighscorePasswordBox.Password != AdManagerPassword)
+        if (HighscorePasswordBox.Password != _adminPassword)
         {
             _isHighscoreUnlocked = false;
             HighscoreAuthStatusText.Text = "❌ Błędne hasło";
@@ -1833,13 +2354,14 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (sender is not Button { Tag: int index } || index < 0 || index >= _highScores.Count)
+        var modeScores = GetHighScoresForMode(_selectedHighscoreMode);
+        if (sender is not Button { Tag: int index } || index < 0 || index >= modeScores.Count)
         {
             HighscoreManageHintText.Text = "Nie udało się usunąć rekordu.";
             return;
         }
 
-        _highScores.RemoveAt(index);
+        modeScores.RemoveAt(index);
         RefreshHighScores();
         SaveHighScores();
         UpdateHud();
@@ -1854,7 +2376,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (sender is not Button { Tag: int index } || index < 0 || index >= _highScores.Count)
+        var modeScores = GetHighScoresForMode(_selectedHighscoreMode);
+        if (sender is not Button { Tag: int index } || index < 0 || index >= modeScores.Count)
         {
             HighscoreManageHintText.Text = "Nie udało się edytować rekordu.";
             return;
@@ -1882,7 +2405,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (sender is not Button { Tag: int index } || index < 0 || index >= _highScores.Count)
+        var modeScores = GetHighScoresForMode(_selectedHighscoreMode);
+        if (sender is not Button { Tag: int index } || index < 0 || index >= modeScores.Count)
         {
             HighscoreManageHintText.Text = "Nie udało się zapisać nicku.";
             return;
@@ -1903,8 +2427,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        var current = _highScores[index];
-        _highScores[index] = current with { Name = newName };
+        var current = modeScores[index];
+        modeScores[index] = current with { Name = newName };
         SaveHighScores();
         RefreshHighScores();
         UpdateHud();
@@ -1966,7 +2490,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (passwordBox.Password != AdManagerPassword)
+        if (passwordBox.Password != _adminPassword)
         {
             hintText.Text = "Błędne hasło";
             return;
@@ -1981,6 +2505,387 @@ public partial class MainWindow : Window
     {
         PlayEffect("buttonClick");
         ResetAdManagerUi();
+    }
+
+    private static GameSettings CreateDefaultSettings()
+    {
+        return new GameSettings(
+            "Gracz",
+            0,
+            0,
+            0,
+            0.6,
+            0.8,
+            140,
+            45,
+            "Left",
+            "Right",
+            "Down",
+            "Up",
+            "Space",
+            "C",
+            false,
+            true,
+            true,
+            true,
+            DefaultAdminPassword);
+    }
+
+    private void ThemeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isLoadingSettings)
+        {
+            return;
+        }
+
+        ApplyTheme();
+        SaveSettings();
+    }
+
+    private void ColorblindModeCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_isLoadingSettings)
+        {
+            return;
+        }
+
+        ApplyTheme();
+        SaveSettings();
+    }
+    private void ApplyAudioSettingsUi()
+    {
+        MusicVolumeSlider.IsEnabled = _musicEnabled;
+        EffectsVolumeSlider.IsEnabled = _effectsEnabled;
+        MusicVolumeSlider.Opacity = _musicEnabled ? 1 : 0.45;
+        EffectsVolumeSlider.Opacity = _effectsEnabled ? 1 : 0.45;
+    }
+
+    private void SettingsToggleCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_isLoadingSettings)
+        {
+            return;
+        }
+
+        _showSessionStats = ShowSessionStatsCheckBox.IsChecked == true;
+        _musicEnabled = MusicEnabledCheckBox.IsChecked == true;
+        _effectsEnabled = EffectsEnabledCheckBox.IsChecked == true;
+
+        SessionStatsCard.Visibility = _showSessionStats ? Visibility.Visible : Visibility.Collapsed;
+        ApplyAudioSettingsUi();
+
+        if (!_musicEnabled)
+        {
+            StopBackgroundMusic();
+        }
+        else if (_isGameStarted && !_gameOver && !_isPaused && StartMenuOverlay.Visibility != Visibility.Visible)
+        {
+            PlayBackgroundMusic();
+        }
+
+        SaveSettings();
+    }
+
+    private void SaveAdminPasswordButton_Click(object sender, RoutedEventArgs e)
+    {
+        PlayEffect("buttonClick");
+
+        var newPassword = AdminPasswordSettingsBox.Password.Trim();
+        if (newPassword.Length < 4)
+        {
+            AdminPasswordStatusText.Text = "Hasło musi mieć co najmniej 4 znaki.";
+            AdminPasswordStatusText.Foreground = new SolidColorBrush(Color.FromRgb(252, 165, 165));
+            return;
+        }
+
+        _adminPassword = newPassword;
+        AdminPasswordSettingsBox.Password = string.Empty;
+        AdminPasswordStatusText.Text = "✅ Hasło administratora zostało zaktualizowane.";
+        AdminPasswordStatusText.Foreground = new SolidColorBrush(Color.FromRgb(147, 197, 253));
+        SaveSettings();
+    }
+
+    private void LoadSessionHistory()
+    {
+        _sessionHistory.Clear();
+        if (!File.Exists(_sessionHistoryPath))
+        {
+            return;
+        }
+
+        try
+        {
+            var json = File.ReadAllText(_sessionHistoryPath);
+            var data = JsonSerializer.Deserialize<List<SessionHistoryEntry>>(json) ?? [];
+            _sessionHistory.AddRange(data.OrderBy(e => e.PlayedAtUtc).TakeLast(200));
+        }
+        catch
+        {
+            _sessionHistory.Clear();
+        }
+    }
+
+    private void SaveSessionHistory()
+    {
+        var json = JsonSerializer.Serialize(_sessionHistory.TakeLast(200), JsonWriteOptions);
+        File.WriteAllText(_sessionHistoryPath, json);
+    }
+
+    private void CaptureSessionResult()
+    {
+        var seconds = Math.Max(1d, _sessionStopwatch.Elapsed.TotalSeconds);
+        var entry = new SessionHistoryEntry(
+            DateTime.UtcNow,
+            _activeGameMode.ToString(),
+            _score,
+            _playerActions * 60d / seconds,
+            _piecesLocked / seconds,
+            _lockSamples == 0 ? 0 : (double)_totalLockDelayMs / _lockSamples,
+            _linesCleared);
+
+        _sessionHistory.Add(entry);
+        if (_sessionHistory.Count > 200)
+        {
+            _sessionHistory.RemoveRange(0, _sessionHistory.Count - 200);
+        }
+
+        SaveSessionHistory();
+    }
+
+    private void DrawTrendChart()
+    {
+        if (TrendChartCanvas is null)
+        {
+            return;
+        }
+
+        TrendChartCanvas.Children.Clear();
+        var points = _sessionHistory.TakeLast(20).ToList();
+        if (points.Count < 2)
+        {
+            return;
+        }
+
+        var width = TrendChartCanvas.Width;
+        var height = TrendChartCanvas.Height;
+        var pad = 6d;
+
+        double maxScore = Math.Max(1, points.Max(p => p.Score));
+        double maxPps = Math.Max(0.01, points.Max(p => p.Pps));
+        double maxApm = Math.Max(1, points.Max(p => p.Apm));
+
+        var scoreLine = new Polyline { Stroke = Brushes.Gold, StrokeThickness = 2, Opacity = 0.9 };
+        var ppsLine = new Polyline { Stroke = Brushes.LightSkyBlue, StrokeThickness = 1.6, Opacity = 0.85 };
+        var apmLine = new Polyline { Stroke = Brushes.LightGreen, StrokeThickness = 1.6, Opacity = 0.85 };
+
+        for (var i = 0; i < points.Count; i++)
+        {
+            var x = pad + (width - 2 * pad) * i / Math.Max(1, points.Count - 1);
+            scoreLine.Points.Add(new Point(x, pad + (height - 2 * pad) * (1 - points[i].Score / maxScore)));
+            ppsLine.Points.Add(new Point(x, pad + (height - 2 * pad) * (1 - points[i].Pps / maxPps)));
+            apmLine.Points.Add(new Point(x, pad + (height - 2 * pad) * (1 - points[i].Apm / maxApm)));
+        }
+
+        TrendChartCanvas.Children.Add(scoreLine);
+        TrendChartCanvas.Children.Add(ppsLine);
+        TrendChartCanvas.Children.Add(apmLine);
+    }
+
+    private void ResetStatsButton_Click(object sender, RoutedEventArgs e)
+    {
+        PlayEffect("buttonClick");
+
+        _sessionHistory.Clear();
+        SaveSessionHistory();
+
+        _playerActions = 0;
+        _piecesLocked = 0;
+        _totalLockDelayMs = 0;
+        _lockSamples = 0;
+        _tetrisLineClears = 0;
+
+        DrawTrendChart();
+        UpdateHud();
+        ExportStatusText.Text = "✅ Statystyki zostały zresetowane (historia + wykres + liczniki sesji).";
+    }
+
+    private void KeyBindingTextBox_GotFocus(object sender, RoutedEventArgs e)
+    {
+        if (sender is TextBox textBox)
+        {
+            textBox.SelectAll();
+            ExportStatusText.Text = "Naciśnij klawisz, aby przypisać sterowanie.";
+        }
+    }
+
+    private void KeyBindingTextBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (sender is not TextBox textBox)
+        {
+            return;
+        }
+
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (key is Key.Tab)
+        {
+            return;
+        }
+
+        textBox.Text = key.ToString();
+        SaveSettings();
+        ExportStatusText.Text = $"✅ Przypisano klawisz: {key}";
+        Keyboard.ClearFocus();
+        e.Handled = true;
+    }
+
+    private void ExportStatsCsvButton_Click(object sender, RoutedEventArgs e)
+    {
+        var save = new SaveFileDialog
+        {
+            Filter = "CSV (*.csv)|*.csv",
+            FileName = $"tetris-session-stats-{DateTime.Now:yyyyMMdd-HHmm}.csv"
+        };
+
+        if (save.ShowDialog() != true)
+        {
+            return;
+        }
+
+        var sb = new StringBuilder();
+        sb.AppendLine("PlayedAtUtc,Mode,Score,Apm,Pps,AvgLockDelayMs,LinesCleared");
+        foreach (var e1 in _sessionHistory)
+        {
+            sb.AppendLine($"{e1.PlayedAtUtc:O},{e1.Mode},{e1.Score},{e1.Apm:0.##},{e1.Pps:0.###},{e1.AvgLockDelayMs:0.##},{e1.LinesCleared}");
+        }
+
+        File.WriteAllText(save.FileName, sb.ToString());
+        ExportStatusText.Text = $"✅ Zapisano CSV: {save.FileName}";
+    }
+
+    private void ExportStatsJsonButton_Click(object sender, RoutedEventArgs e)
+    {
+        var save = new SaveFileDialog
+        {
+            Filter = "JSON (*.json)|*.json",
+            FileName = $"tetris-session-stats-{DateTime.Now:yyyyMMdd-HHmm}.json"
+        };
+
+        if (save.ShowDialog() != true)
+        {
+            return;
+        }
+
+        var json = JsonSerializer.Serialize(_sessionHistory, JsonWriteOptions);
+        File.WriteAllText(save.FileName, json);
+        ExportStatusText.Text = $"✅ Zapisano JSON: {save.FileName}";
+    }
+
+    private void ExportHighscoresCsvButton_Click(object sender, RoutedEventArgs e)
+    {
+        var save = new SaveFileDialog
+        {
+            Filter = "CSV (*.csv)|*.csv",
+            FileName = $"tetris-highscores-{DateTime.Now:yyyyMMdd-HHmm}.csv"
+        };
+
+        if (save.ShowDialog() != true)
+        {
+            return;
+        }
+
+        var sb = new StringBuilder();
+        sb.AppendLine("Mode,Rank,Name,Points");
+        foreach (var mode in Enum.GetValues<GameMode>())
+        {
+            var rows = GetHighScoresForMode(mode);
+            for (var i = 0; i < rows.Count; i++)
+            {
+                sb.AppendLine($"{mode},{i + 1},{rows[i].Name},{rows[i].Points}");
+            }
+        }
+
+        File.WriteAllText(save.FileName, sb.ToString());
+        ExportStatusText.Text = $"✅ Zapisano rekordy CSV: {save.FileName}";
+    }
+
+    private void LoadOnboardingState()
+    {
+        if (!File.Exists(_onboardingPath))
+        {
+            _onboardingState = new OnboardingState(false, string.Empty);
+            return;
+        }
+
+        try
+        {
+            var json = File.ReadAllText(_onboardingPath);
+            _onboardingState = JsonSerializer.Deserialize<OnboardingState>(json) ?? new OnboardingState(false, string.Empty);
+        }
+        catch
+        {
+            _onboardingState = new OnboardingState(false, string.Empty);
+        }
+    }
+
+    private void SaveOnboardingState()
+    {
+        var json = JsonSerializer.Serialize(_onboardingState, JsonWriteOptions);
+        File.WriteAllText(_onboardingPath, json);
+    }
+
+    private void ShowOnboardingIfNeeded()
+    {
+        if (!_onboardingState.TutorialCompleted)
+        {
+            _tutorialStepIndex = 0;
+            TutorialStepText.Text = TutorialSteps[_tutorialStepIndex];
+            TutorialNextButton.Content = "Dalej";
+            TutorialOverlay.Visibility = Visibility.Visible;
+            return;
+        }
+
+        if (!string.Equals(_onboardingState.LastSeenWhatsNewVersion, CurrentWhatsNewVersion, StringComparison.Ordinal))
+        {
+            WhatsNewText.Text = WhatsNewMessage;
+            WhatsNewOverlay.Visibility = Visibility.Visible;
+        }
+    }
+
+    private void TutorialNextButton_Click(object sender, RoutedEventArgs e)
+    {
+        _tutorialStepIndex++;
+        if (_tutorialStepIndex >= TutorialSteps.Length)
+        {
+            TutorialOverlay.Visibility = Visibility.Collapsed;
+            _onboardingState = _onboardingState with { TutorialCompleted = true };
+            SaveOnboardingState();
+            ShowOnboardingIfNeeded();
+            return;
+        }
+
+        TutorialStepText.Text = TutorialSteps[_tutorialStepIndex];
+        TutorialNextButton.Content = _tutorialStepIndex == TutorialSteps.Length - 1 ? "Zakończ" : "Dalej";
+    }
+
+    private void SkipTutorialButton_Click(object sender, RoutedEventArgs e)
+    {
+        TutorialOverlay.Visibility = Visibility.Collapsed;
+        _onboardingState = _onboardingState with { TutorialCompleted = true };
+        SaveOnboardingState();
+        ShowOnboardingIfNeeded();
+    }
+
+    private void CloseWhatsNewButton_Click(object sender, RoutedEventArgs e)
+    {
+        WhatsNewOverlay.Visibility = Visibility.Collapsed;
+        _onboardingState = _onboardingState with { LastSeenWhatsNewVersion = CurrentWhatsNewVersion };
+        SaveOnboardingState();
+    }
+
+    private void OpenWhatsNewButton_Click(object sender, RoutedEventArgs e)
+    {
+        WhatsNewText.Text = WhatsNewMessage;
+        WhatsNewOverlay.Visibility = Visibility.Visible;
     }
 
     private void StartButton_Click(object sender, RoutedEventArgs e)
@@ -2006,9 +2911,17 @@ public partial class MainWindow : Window
         Draw();
     }
 
-    private record Tetromino(Point[] Cells, Brush Color, bool IsSquare);
     private record ScoreEntry(string Name, int Points);
-    private record GameSettings(string Nick, int StartLevelIndex, int GameModeIndex, int ThemeIndex, double MusicVolume, double EffectsVolume);
+    private record SessionHistoryEntry(DateTime PlayedAtUtc, string Mode, int Score, double Apm, double Pps, double AvgLockDelayMs, int LinesCleared);
+    private record OnboardingState(bool TutorialCompleted, string LastSeenWhatsNewVersion);
+    private enum GameMode
+    {
+        Classic = 0,
+        Survival = 1,
+        Sprint = 2,
+        Ultra = 3,
+        Marathon = 4
+    }
 
     private enum AdOrderMode
     {

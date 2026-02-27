@@ -1,8 +1,21 @@
 {
-  "Nick": "go",
+  "Nick": "Gracz",
   "StartLevelIndex": 0,
-  "GameModeIndex": 1,
-  "ThemeIndex": 2,
+  "GameModeIndex": 0,
+  "ThemeIndex": 0,
   "MusicVolume": 0.6,
-  "EffectsVolume": 0.8
+  "EffectsVolume": 0.8,
+  "DasMs": 140,
+  "ArrMs": 45,
+  "MoveLeftKey": "Left",
+  "MoveRightKey": "Right",
+  "SoftDropKey": "Down",
+  "RotateKey": "Up",
+  "HardDropKey": "Space",
+  "HoldKey": "C",
+  "ColorblindMode": false,
+  "ShowSessionStats": true,
+  "MusicEnabled": true,
+  "EffectsEnabled": true,
+  "AdminPassword": "admin"
 }

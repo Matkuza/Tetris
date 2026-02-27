@@ -1,14 +1,14 @@
-[
-  {
-    "Name": "go",
-    "Points": 120
-  },
-  {
-    "Name": "go",
-    "Points": 120
-  },
-  {
-    "Name": "go",
-    "Points": 0
+{
+  "Modes": {
+    "Classic": [
+      {
+        "Name": "Gracz",
+        "Points": 1300
+      }
+    ],
+    "Survival": [],
+    "Sprint": [],
+    "Ultra": [],
+    "Marathon": []
   }
-]
+}
