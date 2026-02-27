@@ -9,6 +9,7 @@ internal record GameSettings(
     double EffectsVolume,
     int DasMs,
     int ArrMs,
+    int SoftDropArrMs,
     string MoveLeftKey,
     string MoveRightKey,
     string SoftDropKey,
@@ -19,4 +20,5 @@ internal record GameSettings(
     bool? ShowSessionStats,
     bool? MusicEnabled,
     bool? EffectsEnabled,
+    bool? LockParticlesEnabled,
     string? AdminPassword);

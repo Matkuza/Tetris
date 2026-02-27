@@ -125,12 +125,14 @@ public class GameEngineTests
             0.4,
             150,
             35,
+            28,
             "A",
             "D",
             "S",
             "W",
             "Space",
             "LeftShift",
+            true,
             true,
             true,
             true,
@@ -144,6 +146,7 @@ public class GameEngineTests
         Assert.Equal("A", roundtrip!.MoveLeftKey);
         Assert.Equal(150, roundtrip.DasMs);
         Assert.Equal(35, roundtrip.ArrMs);
+        Assert.Equal(28, roundtrip.SoftDropArrMs);
     }
     [Fact]
     public void DrawNextPieceIndex_ThrowsWhenPieceCountIsInvalid()
