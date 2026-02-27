@@ -49,6 +49,8 @@ public partial class MainWindow : Window
     private const double MaxEffectsOutputVolume = 0.30;
     private const int MaxLockResetsPerPiece = 8;
     private const int LockImpactParticleCount = 24;
+    private const int FallTrailParticleCount = 6;
+    private const int FallTrailIntervalMs = 45;
 
     private int _defaultAdDurationSeconds = 10;
     private int _rotationIntervalSeconds = 1;
@@ -120,6 +122,7 @@ public partial class MainWindow : Window
     private bool _effectsEnabled = true;
     private bool _lockParticlesEnabled = true;
     private string _adminPassword = DefaultAdminPassword;
+    private long _lastFallParticleMs;
 
 
     private Color _emptyCellColor = Color.FromRgb(12, 20, 38);
@@ -640,6 +643,7 @@ public partial class MainWindow : Window
             _groundedTicks = 0;
             _lockResetsUsed = 0;
             _groundContactStartedMs = null;
+            EmitFallingTrailParticles();
         }
         else
         {
@@ -740,6 +744,7 @@ public partial class MainWindow : Window
             _lockResetsUsed = 0;
             _playerActions++;
             _lastSoftDropRepeatMs = nowMs;
+            EmitFallingTrailParticles(forceBurst: true);
             Draw();
         }
     }
@@ -1015,8 +1020,15 @@ public partial class MainWindow : Window
 
     private void HardDrop()
     {
+        var droppedRows = 0;
         while (TryMove(_currentX, _currentY + 1, _currentPiece.Cells))
         {
+            droppedRows++;
+        }
+
+        if (droppedRows > 0)
+        {
+            EmitFallingTrailParticles(Math.Min(3, droppedRows / 4 + 1), forceBurst: true);
         }
 
         LockPiece();
@@ -1092,6 +1104,67 @@ public partial class MainWindow : Window
             var moveX = new DoubleAnimation(startX, endX, TimeSpan.FromMilliseconds(180 + rnd.Next(140)));
             var moveY = new DoubleAnimation(startY, endY, TimeSpan.FromMilliseconds(200 + rnd.Next(160)));
             var fade = new DoubleAnimation(0.95, 0, TimeSpan.FromMilliseconds(220 + rnd.Next(140)));
+            fade.Completed += (_, _) => EffectCanvas.Children.Remove(particle);
+
+            particle.BeginAnimation(OpacityProperty, fade);
+            particle.BeginAnimation(Canvas.LeftProperty, moveX);
+            particle.BeginAnimation(Canvas.TopProperty, moveY);
+        }
+    }
+
+    private void EmitFallingTrailParticles(int intensity = 1, bool forceBurst = false)
+    {
+        if (!_lockParticlesEnabled || EffectCanvas is null || _currentPiece is null)
+        {
+            return;
+        }
+
+        var nowMs = _inputStopwatch.ElapsedMilliseconds;
+        if (!forceBurst && nowMs - _lastFallParticleMs < FallTrailIntervalMs)
+        {
+            return;
+        }
+
+        _lastFallParticleMs = nowMs;
+        var color = (_currentPiece.Color as SolidColorBrush)?.Color ?? Colors.White;
+        var trailColor = Color.FromArgb(190, color.R, color.G, color.B);
+        var emissionCells = _currentPiece.Cells
+            .OrderByDescending(cell => cell.Y)
+            .Take(2)
+            .Select(cell => new Point(_currentX + cell.X + 0.5, _currentY + cell.Y + 0.7))
+            .ToList();
+
+        if (emissionCells.Count == 0)
+        {
+            return;
+        }
+
+        var particleCount = Math.Max(3, FallTrailParticleCount * Math.Max(1, intensity) / 2);
+        for (var i = 0; i < particleCount; i++)
+        {
+            var origin = emissionCells[_random.Next(emissionCells.Count)];
+            var size = _cellSize * (0.04 + _random.NextDouble() * 0.09);
+            var particle = new Ellipse
+            {
+                Width = size,
+                Height = size,
+                Fill = new SolidColorBrush(trailColor),
+                IsHitTestVisible = false,
+                Opacity = 0.85
+            };
+
+            var startX = origin.X * _cellSize + (_random.NextDouble() - 0.5) * (_cellSize * 0.45);
+            var startY = origin.Y * _cellSize + (_random.NextDouble() * _cellSize * 0.15);
+            Canvas.SetLeft(particle, startX);
+            Canvas.SetTop(particle, startY);
+            EffectCanvas.Children.Add(particle);
+
+            var endX = startX + (_random.NextDouble() - 0.5) * (_cellSize * 0.75);
+            var endY = startY + _cellSize * (0.30 + _random.NextDouble() * 0.50);
+            var duration = TimeSpan.FromMilliseconds(120 + _random.Next(90));
+            var moveX = new DoubleAnimation(startX, endX, duration);
+            var moveY = new DoubleAnimation(startY, endY, duration);
+            var fade = new DoubleAnimation(0.85, 0, duration);
             fade.Completed += (_, _) => EffectCanvas.Children.Remove(particle);
 
             particle.BeginAnimation(OpacityProperty, fade);
@@ -1544,6 +1617,7 @@ public partial class MainWindow : Window
                 _groundedTicks = 0;
                 _lockResetsUsed = 0;
                 _playerActions++;
+                EmitFallingTrailParticles(forceBurst: true);
                 Draw();
             }
 
