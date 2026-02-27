@@ -673,6 +673,17 @@
                                                   Checked="SettingsToggleCheckBox_Changed"
                                                   Unchecked="SettingsToggleCheckBox_Changed" />
                                         <TextBlock Text="Dźwięki akcji (obrót, czyszczenie linii, przyciski, game over)." Foreground="#94A3B8" FontSize="13" Margin="26,0,0,8" TextWrapping="Wrap" />
+
+                                        <CheckBox x:Name="LockParticlesCheckBox"
+                                                  Content="Pokaż cząsteczki przy lądowaniu"
+                                                  IsChecked="True"
+                                                  Margin="0,0,0,4"
+                                                  Foreground="#E2E8F0"
+                                                  FontSize="16"
+                                                  Checked="SettingsToggleCheckBox_Changed"
+                                                  Unchecked="SettingsToggleCheckBox_Changed" />
+                                        <TextBlock Text="Możesz wyłączyć efekt cząsteczek, jeśli przeszkadza albo działa zbyt losowo na Twoim sprzęcie." Foreground="#94A3B8" FontSize="13" Margin="26,0,0,8" TextWrapping="Wrap" />
+
                                         <TextBlock Text="Głośność efektów" Foreground="#E2E8F0" FontSize="16" Margin="0,0,0,4" />
                                         <Slider x:Name="EffectsVolumeSlider"
                                                 Minimum="0"
@@ -693,6 +704,8 @@
                                         <TextBox x:Name="DasTextBox" Text="140" Padding="8" Background="#0A162C" Foreground="#F8FAFC" BorderBrush="#3C577C" ToolTip="DAS: opóźnienie auto-przesuwu po przytrzymaniu (ms)." />
                                         <TextBlock Text="ARR (ms)" Foreground="#E2E8F0" FontSize="17" Margin="0,8,0,4" />
                                         <TextBox x:Name="ArrTextBox" Text="45" Padding="8" Background="#0A162C" Foreground="#F8FAFC" BorderBrush="#3C577C" ToolTip="ARR: szybkość powtarzania przesuwu po DAS (ms)." />
+                                        <TextBlock Text="Soft drop ARR (ms)" Foreground="#E2E8F0" FontSize="17" Margin="0,8,0,4" />
+                                        <TextBox x:Name="SoftDropArrTextBox" Text="35" Padding="8" Background="#0A162C" Foreground="#F8FAFC" BorderBrush="#3C577C" ToolTip="Jak szybko powtarzać opadanie przy przytrzymaniu soft drop (ms). 0 = co klatkę." />
                                     </StackPanel>
                                 </Border>
 

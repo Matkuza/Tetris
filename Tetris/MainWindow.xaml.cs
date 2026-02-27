@@ -32,6 +32,7 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<AdEntry> _ads = [];
     private readonly DispatcherTimer _adTimer;
     private readonly DispatcherTimer _visualFxTimer;
+    private readonly DispatcherTimer _inputTimer;
     private readonly Dictionary<AdPanel, AdPlaybackState> _adStates = new();
 
     private readonly string _adStorageFolder;
@@ -94,6 +95,7 @@ public partial class MainWindow : Window
     private bool _holdUsedThisTurn;
     private int _dasMs = 140;
     private int _arrMs = 45;
+    private int _softDropArrMs = 35;
     private Key _moveLeftKey = Key.Left;
     private Key _moveRightKey = Key.Right;
     private Key _softDropKey = Key.Down;
@@ -104,6 +106,8 @@ public partial class MainWindow : Window
     private long _horizontalPressedAtMs;
     private long _lastHorizontalRepeatMs;
     private bool _softDropPressed;
+    private long _softDropPressedAtMs;
+    private long _lastSoftDropRepeatMs;
     private int _piecesLocked;
     private int _playerActions;
     private int _tetrisLineClears;
@@ -114,6 +118,7 @@ public partial class MainWindow : Window
     private bool _showSessionStats = true;
     private bool _musicEnabled = true;
     private bool _effectsEnabled = true;
+    private bool _lockParticlesEnabled = true;
     private string _adminPassword = DefaultAdminPassword;
 
 
@@ -210,6 +215,8 @@ public partial class MainWindow : Window
                 DrawHoldPiece();
             }
         };
+        _inputTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
+        _inputTimer.Tick += (_, _) => ProcessHeldInput();
 
         _adStorageFolder = ResolveAdStoragePath();
         _adManifestPath = IOPath.Combine(_adStorageFolder, "ads.json");
@@ -603,6 +610,7 @@ public partial class MainWindow : Window
         PlayEffect("startGame");
         PlayBackgroundMusic();
         _timer.Start();
+        _inputTimer.Start();
     }
 
     private void SetTimerSpeed()
@@ -626,9 +634,6 @@ public partial class MainWindow : Window
         {
             return;
         }
-
-        HandleHorizontalRepeat();
-        HandleSoftDropRepeat();
 
         if (TryMove(_currentX, _currentY + 1, _currentPiece.Cells))
         {
@@ -718,12 +723,36 @@ public partial class MainWindow : Window
             return;
         }
 
+        var nowMs = _inputStopwatch.ElapsedMilliseconds;
+        if (nowMs - _softDropPressedAtMs < _dasMs)
+        {
+            return;
+        }
+
+        if (_softDropArrMs > 0 && nowMs - _lastSoftDropRepeatMs < _softDropArrMs)
+        {
+            return;
+        }
+
         if (TryMove(_currentX, _currentY + 1, _currentPiece.Cells))
         {
             _groundedTicks = 0;
             _lockResetsUsed = 0;
             _playerActions++;
+            _lastSoftDropRepeatMs = nowMs;
+            Draw();
         }
+    }
+
+    private void ProcessHeldInput()
+    {
+        if (_gameOver || !_isGameStarted || _isPaused || StartMenuOverlay.Visibility == Visibility.Visible)
+        {
+            return;
+        }
+
+        HandleHorizontalRepeat();
+        HandleSoftDropRepeat();
     }
 
     private void SpawnPiece()
@@ -760,6 +789,7 @@ public partial class MainWindow : Window
 
         _gameOver = true;
         _timer.Stop();
+        _inputTimer.Stop();
         _ultraStopwatch.Stop();
         _sessionStopwatch.Stop();
         StopBackgroundMusic();
@@ -1009,6 +1039,11 @@ public partial class MainWindow : Window
 
     private void EmitLockImpactParticles()
     {
+        if (!_lockParticlesEnabled)
+        {
+            return;
+        }
+
         if (EffectCanvas is null || _currentPiece is null)
         {
             return;
@@ -1501,6 +1536,8 @@ public partial class MainWindow : Window
         if (e.Key == _softDropKey)
         {
             _softDropPressed = true;
+            _softDropPressedAtMs = _inputStopwatch.ElapsedMilliseconds;
+            _lastSoftDropRepeatMs = _softDropPressedAtMs;
             var moved = TryMove(_currentX, _currentY + 1, _currentPiece.Cells);
             if (moved)
             {
@@ -1577,6 +1614,7 @@ public partial class MainWindow : Window
         if (_isPaused)
         {
             _timer.Stop();
+            _inputTimer.Stop();
             if (_activeGameMode == GameMode.Ultra)
             {
                 _ultraStopwatch.Stop();
@@ -1588,6 +1626,7 @@ public partial class MainWindow : Window
         else
         {
             _timer.Start();
+            _inputTimer.Start();
             if (_activeGameMode == GameMode.Ultra)
             {
                 _ultraStopwatch.Start();
@@ -1692,6 +1731,7 @@ public partial class MainWindow : Window
     {
         DasTextBox.Text = _dasMs.ToString(CultureInfo.InvariantCulture);
         ArrTextBox.Text = _arrMs.ToString(CultureInfo.InvariantCulture);
+        SoftDropArrTextBox.Text = _softDropArrMs.ToString(CultureInfo.InvariantCulture);
         MoveLeftKeyTextBox.Text = _moveLeftKey.ToString();
         MoveRightKeyTextBox.Text = _moveRightKey.ToString();
         SoftDropKeyTextBox.Text = _softDropKey.ToString();
@@ -1769,10 +1809,12 @@ public partial class MainWindow : Window
             ShowSessionStatsCheckBox.IsChecked = settings.ShowSessionStats;
             MusicEnabledCheckBox.IsChecked = settings.MusicEnabled;
             EffectsEnabledCheckBox.IsChecked = settings.EffectsEnabled;
+            LockParticlesCheckBox.IsChecked = settings.LockParticlesEnabled;
             MusicVolumeSlider.Value = Math.Clamp(settings.MusicVolume, 0, 1);
             EffectsVolumeSlider.Value = Math.Clamp(settings.EffectsVolume, 0, 1);
             _dasMs = Math.Clamp(settings.DasMs, 0, 500);
             _arrMs = Math.Clamp(settings.ArrMs, 0, 300);
+            _softDropArrMs = Math.Clamp(settings.SoftDropArrMs, 0, 200);
             _moveLeftKey = ParseKey(settings.MoveLeftKey, Key.Left);
             _moveRightKey = ParseKey(settings.MoveRightKey, Key.Right);
             _softDropKey = ParseKey(settings.SoftDropKey, Key.Down);
@@ -1783,6 +1825,7 @@ public partial class MainWindow : Window
             _showSessionStats = settings.ShowSessionStats == true;
             _musicEnabled = settings.MusicEnabled == true;
             _effectsEnabled = settings.EffectsEnabled == true;
+            _lockParticlesEnabled = settings.LockParticlesEnabled == true;
             _adminPassword = string.IsNullOrWhiteSpace(settings.AdminPassword) ? DefaultAdminPassword : settings.AdminPassword;
             AdminPasswordStatusText.Text = $"Hasło administratora ustawione (domyślne: {DefaultAdminPassword}).";
             ApplyControlSettingsToUi();
@@ -1803,6 +1846,7 @@ public partial class MainWindow : Window
     {
         _dasMs = Math.Clamp(ParseNonNegativeInt(DasTextBox.Text, _dasMs), 0, 500);
         _arrMs = Math.Clamp(ParseNonNegativeInt(ArrTextBox.Text, _arrMs), 0, 300);
+        _softDropArrMs = Math.Clamp(ParseNonNegativeInt(SoftDropArrTextBox.Text, _softDropArrMs), 0, 200);
         _moveLeftKey = ParseKey(MoveLeftKeyTextBox.Text, _moveLeftKey);
         _moveRightKey = ParseKey(MoveRightKeyTextBox.Text, _moveRightKey);
         _softDropKey = ParseKey(SoftDropKeyTextBox.Text, _softDropKey);
@@ -1815,6 +1859,7 @@ public partial class MainWindow : Window
         _showSessionStats = ShowSessionStatsCheckBox.IsChecked == true;
         _musicEnabled = MusicEnabledCheckBox.IsChecked == true;
         _effectsEnabled = EffectsEnabledCheckBox.IsChecked == true;
+        _lockParticlesEnabled = LockParticlesCheckBox.IsChecked == true;
 
         var settings = new GameSettings(
             NickTextBox.Text.Trim(),
@@ -1825,6 +1870,7 @@ public partial class MainWindow : Window
             EffectsVolumeSlider.Value,
             _dasMs,
             _arrMs,
+            _softDropArrMs,
             _moveLeftKey.ToString(),
             _moveRightKey.ToString(),
             _softDropKey.ToString(),
@@ -1835,6 +1881,7 @@ public partial class MainWindow : Window
             _showSessionStats,
             _musicEnabled,
             _effectsEnabled,
+            _lockParticlesEnabled,
             _adminPassword);
 
         var json = SettingsPersistence.Serialize(settings, JsonWriteOptions);
@@ -2518,6 +2565,7 @@ public partial class MainWindow : Window
             0.8,
             140,
             45,
+            35,
             "Left",
             "Right",
             "Down",
@@ -2525,6 +2573,7 @@ public partial class MainWindow : Window
             "Space",
             "C",
             false,
+            true,
             true,
             true,
             true,

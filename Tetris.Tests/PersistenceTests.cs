@@ -7,7 +7,7 @@ public class PersistenceTests
     [Fact]
     public void SettingsDeserializeOrDefault_ReturnsDefaultsForInvalidJson()
     {
-        var defaults = new GameSettings("Player", 0, 0, 0, 0.6, 0.8, 140, 45, "Left", "Right", "Down", "Up", "Space", "C", false, true, true, true, "admin");
+        var defaults = new GameSettings("Player", 0, 0, 0, 0.6, 0.8, 140, 45, 35, "Left", "Right", "Down", "Up", "Space", "C", false, true, true, true, true, "admin");
 
         var parsed = SettingsPersistence.DeserializeOrDefault("not-json", defaults);
 
@@ -17,7 +17,7 @@ public class PersistenceTests
     [Fact]
     public void SettingsSerialize_NormalizesOutOfRangeValues()
     {
-        var settings = new GameSettings("  ", 99, 99, 99, 9, -2, 9999, -2, "", "", "", "", "", "", true, true, true, true, "");
+        var settings = new GameSettings("  ", 99, 99, 99, 9, -2, 9999, -2, 9999, "", "", "", "", "", "", true, true, true, true, true, "");
 
         var json = SettingsPersistence.Serialize(settings);
         var parsed = JsonSerializer.Deserialize<GameSettings>(json);
@@ -31,6 +31,7 @@ public class PersistenceTests
         Assert.Equal(0, parsed.EffectsVolume);
         Assert.Equal(500, parsed.DasMs);
         Assert.Equal(0, parsed.ArrMs);
+        Assert.Equal(200, parsed.SoftDropArrMs);
         Assert.Equal("Left", parsed.MoveLeftKey);
         Assert.True(parsed.ColorblindMode);
         Assert.Equal("admin", parsed.AdminPassword);

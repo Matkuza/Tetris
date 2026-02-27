@@ -108,6 +108,7 @@ internal static class SettingsPersistence
             EffectsVolume = Math.Clamp(settings.EffectsVolume, 0, 1),
             DasMs = Math.Clamp(settings.DasMs, 0, 500),
             ArrMs = Math.Clamp(settings.ArrMs, 0, 300),
+            SoftDropArrMs = Math.Clamp(settings.SoftDropArrMs, 0, 200),
             MoveLeftKey = KeyOr(settings.MoveLeftKey, "Left"),
             MoveRightKey = KeyOr(settings.MoveRightKey, "Right"),
             SoftDropKey = KeyOr(settings.SoftDropKey, "Down"),
@@ -117,6 +118,7 @@ internal static class SettingsPersistence
             ShowSessionStats = settings.ShowSessionStats ?? true,
             MusicEnabled = settings.MusicEnabled ?? true,
             EffectsEnabled = settings.EffectsEnabled ?? true,
+            LockParticlesEnabled = settings.LockParticlesEnabled ?? true,
             AdminPassword = string.IsNullOrWhiteSpace(settings.AdminPassword) ? "admin" : settings.AdminPassword.Trim()
         };
     }
