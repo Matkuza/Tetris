@@ -1127,44 +1127,52 @@ public partial class MainWindow : Window
 
         _lastFallParticleMs = nowMs;
         var color = (_currentPiece.Color as SolidColorBrush)?.Color ?? Colors.White;
-        var trailColor = Color.FromArgb(190, color.R, color.G, color.B);
-        var emissionCells = _currentPiece.Cells
-            .OrderByDescending(cell => cell.Y)
+        var trailColor = Color.FromArgb(185, color.R, color.G, color.B);
+        var topCells = _currentPiece.Cells
+            .OrderBy(cell => cell.Y)
             .Take(2)
-            .Select(cell => new Point(_currentX + cell.X + 0.5, _currentY + cell.Y + 0.7))
+            .Select(cell => new Point(_currentX + cell.X + 0.5, _currentY + cell.Y + 0.15))
             .ToList();
 
-        if (emissionCells.Count == 0)
+        if (topCells.Count == 0)
         {
             return;
         }
 
         var particleCount = Math.Max(3, FallTrailParticleCount * Math.Max(1, intensity) / 2);
+        var coneWidth = _cellSize * 0.8;
+        var coneHeight = _cellSize * 0.9;
+
         for (var i = 0; i < particleCount; i++)
         {
-            var origin = emissionCells[_random.Next(emissionCells.Count)];
-            var size = _cellSize * (0.04 + _random.NextDouble() * 0.09);
+            var apex = topCells[_random.Next(topCells.Count)];
+            var spreadFactor = _random.NextDouble();
+            var spread = coneWidth * spreadFactor;
+            var horizontalOffset = (_random.NextDouble() - 0.5) * spread;
+            var upwardOffset = coneHeight * (0.15 + _random.NextDouble() * 0.85);
+
+            var size = _cellSize * (0.04 + _random.NextDouble() * 0.08);
             var particle = new Ellipse
             {
                 Width = size,
                 Height = size,
                 Fill = new SolidColorBrush(trailColor),
                 IsHitTestVisible = false,
-                Opacity = 0.85
+                Opacity = 0.82
             };
 
-            var startX = origin.X * _cellSize + (_random.NextDouble() - 0.5) * (_cellSize * 0.45);
-            var startY = origin.Y * _cellSize + (_random.NextDouble() * _cellSize * 0.15);
+            var startX = apex.X * _cellSize + (_random.NextDouble() - 0.5) * (_cellSize * 0.25);
+            var startY = apex.Y * _cellSize + (_random.NextDouble() * _cellSize * 0.1);
             Canvas.SetLeft(particle, startX);
             Canvas.SetTop(particle, startY);
             EffectCanvas.Children.Add(particle);
 
-            var endX = startX + (_random.NextDouble() - 0.5) * (_cellSize * 0.75);
-            var endY = startY + _cellSize * (0.30 + _random.NextDouble() * 0.50);
-            var duration = TimeSpan.FromMilliseconds(120 + _random.Next(90));
+            var endX = startX + horizontalOffset;
+            var endY = startY - upwardOffset;
+            var duration = TimeSpan.FromMilliseconds(130 + _random.Next(90));
             var moveX = new DoubleAnimation(startX, endX, duration);
             var moveY = new DoubleAnimation(startY, endY, duration);
-            var fade = new DoubleAnimation(0.85, 0, duration);
+            var fade = new DoubleAnimation(0.82, 0, duration);
             fade.Completed += (_, _) => EffectCanvas.Children.Remove(particle);
 
             particle.BeginAnimation(OpacityProperty, fade);
