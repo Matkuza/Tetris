@@ -1316,7 +1316,7 @@ public partial class MainWindow : Window
             };
             StatusText.Text = _isPaused
                 ? TranslateSentence("PAUSED • P: resume • Esc")
-                : $"{modeText} • {_moveLeftKey}/{_moveRightKey} : move • {_rotateKey}: rotate • {_hardDropKey}: drop • {_holdKey}: hold • P: pause • Esc";
+                : TranslateSentence($"{modeText} • {_moveLeftKey}/{_moveRightKey} : move • {_rotateKey}: rotate • {_hardDropKey}: drop • {_holdKey}: hold • P: pause • Esc");
         }
     }
 
@@ -1349,45 +1349,93 @@ public partial class MainWindow : Window
         _ => text
     };
 
-    private string TranslateSentence(string text) => _uiLanguage switch
+    private string TranslateSentence(string text)
     {
-        UiLanguage.Polish when text == "PAUSED • P: resume • Esc" => "PAUZA • P: wznów • Esc",
-        UiLanguage.German when text == "PAUSED • P: resume • Esc" => "PAUSE • P: fortsetzen • Esc",
-        UiLanguage.Russian when text == "PAUSED • P: resume • Esc" => "ПАУЗА • P: продолжить • Esc",
-        UiLanguage.Spanish when text == "PAUSED • P: resume • Esc" => "PAUSA • P: reanudar • Esc",
-        _ => text
+        if (text == "PAUSED • P: resume • Esc")
+        {
+            return _uiLanguage switch
+            {
+                UiLanguage.Polish => "PAUZA • P: wznów • Esc",
+                UiLanguage.German => "PAUSE • P: fortsetzen • Esc",
+                UiLanguage.Russian => "ПАУЗА • P: продолжить • Esc",
+                UiLanguage.Spanish => "PAUSA • P: reanudar • Esc",
+                _ => text
+            };
+        }
+
+        return _uiLanguage switch
+        {
+            UiLanguage.Polish => text.Replace("move", "ruch").Replace("rotate", "obrót").Replace("drop", "zrzut").Replace("hold", "hold").Replace("pause", "pauza"),
+            UiLanguage.German => text.Replace("move", "bewegen").Replace("rotate", "drehen").Replace("drop", "Drop").Replace("hold", "halten").Replace("pause", "Pause"),
+            UiLanguage.Russian => text.Replace("move", "движение").Replace("rotate", "поворот").Replace("drop", "сброс").Replace("hold", "удержание").Replace("pause", "пауза"),
+            UiLanguage.Spanish => text.Replace("move", "mover").Replace("rotate", "girar").Replace("drop", "caída").Replace("hold", "hold").Replace("pause", "pausa"),
+            _ => text
+        };
+    }
+
+    private static string Lang(UiLanguage lang, string en, string pl, string de, string ru, string es) => lang switch
+    {
+        UiLanguage.Polish => pl,
+        UiLanguage.German => de,
+        UiLanguage.Russian => ru,
+        UiLanguage.Spanish => es,
+        _ => en
     };
+
+    private static bool MatchesAny(string value, params string[] variants) => variants.Any(v => string.Equals(value, v, StringComparison.Ordinal));
+
+    private void LocalizeTextBlock(TextBlock item, string en, string pl, string de, string ru, string es)
+    {
+        if (MatchesAny(item.Text, en, pl, de, ru, es))
+        {
+            item.Text = Lang(_uiLanguage, en, pl, de, ru, es);
+        }
+    }
+
+    private void LocalizeContent(Control control, string en, string pl, string de, string ru, string es)
+    {
+        if (control is ContentControl contentControl && contentControl.Content is string content && MatchesAny(content, en, pl, de, ru, es))
+        {
+            contentControl.Content = Lang(_uiLanguage, en, pl, de, ru, es);
+        }
+    }
 
     private void ApplyLanguageToUi()
     {
         Title = "StackMaster";
 
-        static string Lang(UiLanguage lang, string en, string pl, string de, string ru, string es) => lang switch
-        {
-            UiLanguage.Polish => pl,
-            UiLanguage.German => de,
-            UiLanguage.Russian => ru,
-            UiLanguage.Spanish => es,
-            _ => en
-        };
-
         foreach (var item in FindVisualChildren<TextBlock>(this))
         {
-            item.Text = item.Text switch
-            {
-                "STACKMASTER" => "STACKMASTER",
-                "MAIN MENU" => Lang(_uiLanguage, "MAIN MENU", "MENU GŁÓWNE", "HAUPTMENÜ", "ГЛАВНОЕ МЕНЮ", "MENÚ PRINCIPAL"),
-                "GAME OVER" => Lang(_uiLanguage, "GAME OVER", "KONIEC GRY", "SPIEL VORBEI", "КОНЕЦ ИГРЫ", "FIN DEL JUEGO"),
-                "PAUSED" => Lang(_uiLanguage, "PAUSED", "PAUZA", "PAUSE", "ПАУЗА", "PAUSA"),
-                "Press P to resume" => Lang(_uiLanguage, "Press P to resume", "Naciśnij P aby wznowić", "Drücke P zum Fortsetzen", "Нажмите P, чтобы продолжить", "Pulsa P para reanudar"),
-                "Press SPACE to return to menu" => Lang(_uiLanguage, "Press SPACE to return to menu", "Naciśnij SPACJĘ aby wrócić do menu", "Drücke LEERTASTE, um zum Menü zurückzukehren", "Нажмите ПРОБЕЛ, чтобы вернуться в меню", "Pulsa ESPACIO para volver al menú"),
-                "Arrows: move/rotate • Space: hard drop • P: pause • Esc" => Lang(_uiLanguage, "Arrows: move/rotate • Space: hard drop • P: pause • Esc", "Strzałki: ruch/obrót • Spacja: hard drop • P: pauza • Esc", "Pfeile: bewegen/drehen • Leertaste: Hard Drop • P: Pause • Esc", "Стрелки: движение/поворот • Пробел: жёсткий сброс • P: пауза • Esc", "Flechas: mover/girar • Espacio: hard drop • P: pausa • Esc"),
-                "SESSION STATS" => Lang(_uiLanguage, "SESSION STATS", "STATYSTYKI SESJI", "SITZUNGSSTATISTIK", "СТАТИСТИКА СЕССИИ", "ESTADÍSTICAS DE SESIÓN"),
-                "NEXT" => Lang(_uiLanguage, "NEXT", "NASTĘPNY", "NÄCHSTER", "СЛЕДУЮЩИЙ", "SIGUIENTE"),
-                "SCORE" => Lang(_uiLanguage, "SCORE", "WYNIK", "PUNKTE", "СЧЁТ", "PUNTAJE"),
-                "LEVEL" => Lang(_uiLanguage, "LEVEL", "POZIOM", "LEVEL", "УРОВЕНЬ", "NIVEL"),
-                _ => item.Text
-            };
+            LocalizeTextBlock(item, "MAIN MENU", "MENU GŁÓWNE", "HAUPTMENÜ", "ГЛАВНОЕ МЕНЮ", "MENÚ PRINCIPAL");
+            LocalizeTextBlock(item, "GAME OVER", "KONIEC GRY", "SPIEL VORBEI", "КОНЕЦ ИГРЫ", "FIN DEL JUEGO");
+            LocalizeTextBlock(item, "PAUSED", "PAUZA", "PAUSE", "ПАУЗА", "PAUSA");
+            LocalizeTextBlock(item, "Press P to resume", "Naciśnij P aby wznowić", "Drücke P zum Fortsetzen", "Нажмите P, чтобы продолжить", "Pulsa P para reanudar");
+            LocalizeTextBlock(item, "Press SPACE to return to menu", "Naciśnij SPACJĘ aby wrócić do menu", "Drücke LEERTASTE, um zum Menü zurückzukehren", "Нажмите ПРОБЕЛ, чтобы вернуться в меню", "Pulsa ESPACIO para volver al menú");
+            LocalizeTextBlock(item, "Arrows: move/rotate • Space: hard drop • P: pause • Esc", "Strzałki: ruch/obrót • Spacja: hard drop • P: pauza • Esc", "Pfeile: bewegen/drehen • Leertaste: Hard Drop • P: Pause • Esc", "Стрелки: движение/поворот • Пробел: жёсткий сброс • P: пауза • Esc", "Flechas: mover/girar • Espacio: hard drop • P: pausa • Esc");
+            LocalizeTextBlock(item, "SESSION STATS", "STATYSTYKI SESJI", "SITZUNGSSTATISTIK", "СТАТИСТИКА СЕССИИ", "ESTADÍSTICAS DE SESIÓN");
+            LocalizeTextBlock(item, "NEXT", "NASTĘPNY", "NÄCHSTER", "СЛЕДУЮЩИЙ", "SIGUIENTE");
+            LocalizeTextBlock(item, "SCORE", "WYNIK", "PUNKTE", "СЧЁТ", "PUNTAJE");
+            LocalizeTextBlock(item, "LEVEL", "POZIOM", "LEVEL", "УРОВЕНЬ", "NIVEL");
+            LocalizeTextBlock(item, "Game settings", "Ustawienia gry", "Spieleinstellungen", "Настройки игры", "Configuración del juego");
+            LocalizeTextBlock(item, "Language", "Język", "Sprache", "Язык", "Idioma");
+            LocalizeTextBlock(item, "Display and audio", "Widok i audio", "Anzeige und Audio", "Экран и аудио", "Pantalla y audio");
+            LocalizeTextBlock(item, "Starting level", "Poziom startowy", "Startlevel", "Начальный уровень", "Nivel inicial");
+            LocalizeTextBlock(item, "Game mode", "Tryb gry", "Spielmodus", "Режим игры", "Modo de juego");
+            LocalizeTextBlock(item, "Color theme", "Tryb kolorów", "Farbthema", "Цветовая тема", "Tema de color");
+            LocalizeTextBlock(item, "Nickname", "Nick", "Spitzname", "Ник", "Apodo");
+        }
+
+        foreach (var control in FindVisualChildren<Control>(this))
+        {
+            LocalizeContent(control, "Exit", "Wyjdź", "Beenden", "Выход", "Salir");
+            LocalizeContent(control, "Start", "Start", "Start", "Старт", "Iniciar");
+            LocalizeContent(control, "Show session stats in HUD", "Pokazuj statystyki sesji w HUD", "Sitzungsstatistiken im HUD anzeigen", "Показывать статистику сессии в HUD", "Mostrar estadísticas de sesión en HUD");
+            LocalizeContent(control, "Enable music", "Włącz muzykę", "Musik aktivieren", "Включить музыку", "Activar música");
+            LocalizeContent(control, "Enable sound effects", "Włącz efekty dźwiękowe", "Soundeffekte aktivieren", "Включить звуковые эффекты", "Activar efectos de sonido");
+            LocalizeContent(control, "Show landing particles", "Pokaż cząsteczki przy lądowaniu", "Landepartikel anzeigen", "Показывать частицы при приземлении", "Mostrar partículas al aterrizar");
+            LocalizeContent(control, "Save image settings", "Zapisz ustawienia grafiki", "Bildeinstellungen speichern", "Сохранить настройки изображения", "Guardar ajustes de imagen");
+            LocalizeContent(control, "Save global settings", "Zapisz ustawienia globalne", "Globale Einstellungen speichern", "Сохранить глобальные настройки", "Guardar ajustes globales");
+            LocalizeContent(control, "Ad options (password)", "Opcje reklam (hasło)", "Werbeoptionen (Passwort)", "Параметры рекламы (пароль)", "Opciones de anuncios (contraseña)");
         }
 
         var modeItems = new[] { "Classic", "Survival", "Sprint (40 lines)", "Ultra (120s)", "Marathon" };
