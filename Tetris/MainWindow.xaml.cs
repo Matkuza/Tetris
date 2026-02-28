@@ -1519,7 +1519,7 @@ public partial class MainWindow : Window
         {
             LocalizeContent(control, "WHAT'S NEW", "CO NOWEGO", "WAS IST NEU", "ЧТО НОВОГО", "NOVEDADES");
             LocalizeContent(control, "NEW GAME", "NOWA GRA", "NEUES SPIEL", "НОВАЯ ИГРА", "NUEVA PARTIDA");
-            LocalizeContent(control, "HIGHSCORE", "HIGHSCORE", "HIGHSCORE", "РЕКОРДЫ", "HIGHSCORE");
+            LocalizeContent(control, "HIGHSCORE", "WYNIKI", "HIGHSCORE", "РЕКОРДЫ", "HIGHSCORE");
             LocalizeContent(control, "SETTINGS", "USTAWIENIA", "EINSTELLUNGEN", "НАСТРОЙКИ", "AJUSTES");
             LocalizeContent(control, "Exit", "Wyjdź", "Beenden", "Выход", "Salir");
             LocalizeContent(control, "Start", "Start", "Start", "Старт", "Iniciar");

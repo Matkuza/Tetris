@@ -7,6 +7,7 @@
   "EffectsVolume": 0.8,
   "DasMs": 140,
   "ArrMs": 45,
+  "SoftDropArrMs": 0,
   "MoveLeftKey": "Left",
   "MoveRightKey": "Right",
   "SoftDropKey": "Down",
@@ -17,5 +18,7 @@
   "ShowSessionStats": true,
   "MusicEnabled": true,
   "EffectsEnabled": true,
-  "AdminPassword": "admin"
+  "LockParticlesEnabled": true,
+  "AdminPassword": "admin",
+  "LanguageCode": "en"
 }
