@@ -7,5 +7,14 @@
     "Pps": 0.4626138751039378,
     "AvgLockDelayMs": 464,
     "LinesCleared": 7
+  },
+  {
+    "PlayedAtUtc": "2026-02-27T22:04:30.0187538Z",
+    "Mode": "Classic",
+    "Score": 2400,
+    "Apm": 183.31397839696288,
+    "Pps": 0.3566212704005956,
+    "AvgLockDelayMs": 692.55,
+    "LinesCleared": 16
   }
 ]

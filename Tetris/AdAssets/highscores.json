@@ -3,6 +3,10 @@
     "Classic": [
       {
         "Name": "Gracz",
+        "Points": 2400
+      },
+      {
+        "Name": "Gracz",
         "Points": 1300
       }
     ],
