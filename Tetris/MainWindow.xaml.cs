@@ -89,8 +89,7 @@ public partial class MainWindow : Window
     private OnboardingState _onboardingState = new(false, string.Empty);
     private int _tutorialStepIndex;
     private const string CurrentWhatsNewVersion = "1.2.0";
-    private const string WhatsNewMessage = "• Settings now include new toggles (session HUD, music, effects) with descriptions.\n• Added administrator password change (default: admin).\n• Highscores expanded to TOP 100 per mode.";
-    private static readonly string[] TutorialSteps =
+    private static readonly string[] TutorialStepsEnglish =
     [
         "1/4 Move: ←/→ shift the piece, ↑ rotates, Space performs hard drop.",
         "2/4 Hold: key C stores the piece in HOLD and swaps it later.",
@@ -694,7 +693,7 @@ public partial class MainWindow : Window
             var ultraElapsedMs = (int)_ultraStopwatch.ElapsedMilliseconds;
             if (ultraElapsedMs >= 120000)
             {
-                FinishGame("ULTRA FINISHED • Space: start menu • Esc: close");
+                FinishGame(Lang(_uiLanguage, "ULTRA FINISHED • Space: start menu • Esc: close", "ULTRA ZAKOŃCZONE • Spacja: menu start • Esc: zamknij", "ULTRA BEENDET • Leertaste: Startmenü • Esc: schließen", "ULTRA ЗАВЕРШЁН • Пробел: стартовое меню • Esc: выход", "ULTRA FINALIZADO • Espacio: menú inicio • Esc: cerrar"));
                 return;
             }
         }
@@ -793,7 +792,7 @@ public partial class MainWindow : Window
 
     private void OnGameOver()
     {
-        FinishGame("GAME OVER • Space: start menu • Esc: close", true);
+        FinishGame(Lang(_uiLanguage, "GAME OVER • Space: start menu • Esc: close", "KONIEC GRY • Spacja: menu start • Esc: zamknij", "SPIEL VORBEI • Leertaste: Startmenü • Esc: schließen", "КОНЕЦ ИГРЫ • Пробел: стартовое меню • Esc: выход", "FIN DEL JUEGO • Espacio: menú inicio • Esc: cerrar"), true);
     }
 
     private void FinishGame(string statusText, bool playDefeatSound = false)
@@ -886,7 +885,7 @@ public partial class MainWindow : Window
 
             var pointsText = new TextBlock
             {
-                Text = $"{entry.Points} pkt",
+                Text = $"{entry.Points} {Lang(_uiLanguage, "pts", "pkt", "Pkt", "очк", "pts")}",
                 Foreground = new SolidColorBrush(Color.FromRgb(196, 181, 253)),
                 Width = 120,
                 VerticalAlignment = VerticalAlignment.Center,
@@ -924,7 +923,7 @@ public partial class MainWindow : Window
 
             var editButton = new Button
             {
-                Content = "Edytuj",
+                Content = Lang(_uiLanguage, "Edit", "Edytuj", "Bearbeiten", "Изменить", "Editar"),
                 Tag = i,
                 Margin = new Thickness(0, 0, 8, 0),
                 Padding = new Thickness(10, 4, 10, 4),
@@ -1229,7 +1228,7 @@ public partial class MainWindow : Window
 
         if (_activeGameMode == GameMode.Sprint && _linesCleared >= 40)
         {
-            FinishGame("SPRINT COMPLETED • Space: start menu • Esc: close");
+            FinishGame(Lang(_uiLanguage, "SPRINT COMPLETED • Space: start menu • Esc: close", "SPRINT UKOŃCZONY • Spacja: menu start • Esc: zamknij", "SPRINT ABGESCHLOSSEN • Leertaste: Startmenü • Esc: schließen", "СПРИНТ ЗАВЕРШЁН • Пробел: стартовое меню • Esc: выход", "SPRINT COMPLETADO • Espacio: menú inicio • Esc: cerrar"));
         }
 
         return removedRows;
@@ -1384,6 +1383,47 @@ public partial class MainWindow : Window
 
     private static bool MatchesAny(string value, params string[] variants) => variants.Any(v => string.Equals(value, v, StringComparison.Ordinal));
 
+    private string GetWhatsNewMessage() => Lang(
+        _uiLanguage,
+        "• Settings now include new toggles (session HUD, music, effects) with descriptions.\n• Added administrator password change (default: admin).\n• Highscores expanded to TOP 100 per mode.",
+        "• Ustawienia mają nowe przełączniki (HUD sesji, muzyka, efekty).\n• Dodano zmianę hasła administratora (domyślnie: admin).\n• Ranking rozszerzono do TOP 100 na tryb.",
+        "• Einstellungen enthalten neue Schalter (Session-HUD, Musik, Effekte).\n• Passwortänderung für Administrator hinzugefügt (Standard: admin).\n• Highscores auf TOP 100 pro Modus erweitert.",
+        "• В настройках появились новые переключатели (HUD сессии, музыка, эффекты).\n• Добавлена смена пароля администратора (по умолчанию: admin).\n• Таблица рекордов расширена до ТОП 100 для каждого режима.",
+        "• Ajustes con nuevos interruptores (HUD de sesión, música, efectos).\n• Se añadió cambio de contraseña de administrador (por defecto: admin).\n• Ranking ampliado a TOP 100 por modo.");
+
+    private string[] GetTutorialSteps() => _uiLanguage switch
+    {
+        UiLanguage.Polish =>
+        [
+            "1/4 Ruch: ←/→ przesuwają klocek, ↑ obraca, Spacja robi hard drop.",
+            "2/4 Hold: klawisz C odkłada klocek do HOLD i zamienia go później.",
+            "3/4 Tryby: Sprint (40 linii), Ultra (120s), Marathon i Survival mają osobne rankingi.",
+            "4/4 Ustawienia: możesz zmienić klawisze, DAS/ARR i włączyć tryb daltonistyczny."
+        ],
+        UiLanguage.German =>
+        [
+            "1/4 Bewegung: ←/→ verschieben den Block, ↑ rotiert, Leertaste macht Hard Drop.",
+            "2/4 Hold: Taste C legt den Block in HOLD und tauscht ihn später zurück.",
+            "3/4 Modi: Sprint (40 Zeilen), Ultra (120s), Marathon und Survival haben eigene Highscores.",
+            "4/4 Einstellungen: Tasten, DAS/ARR und Farbenblindmodus können geändert werden."
+        ],
+        UiLanguage.Russian =>
+        [
+            "1/4 Движение: ←/→ двигают фигуру, ↑ поворачивает, Пробел делает hard drop.",
+            "2/4 Hold: клавиша C отправляет фигуру в HOLD и потом меняет её обратно.",
+            "3/4 Режимы: Спринт (40 линий), Ultra (120s), Marathon и Survival имеют отдельные рекорды.",
+            "4/4 Настройки: можно изменить клавиши, DAS/ARR и включить режим дальтонизма."
+        ],
+        UiLanguage.Spanish =>
+        [
+            "1/4 Movimiento: ←/→ desplazan la pieza, ↑ rota, Espacio hace hard drop.",
+            "2/4 Hold: tecla C guarda la pieza en HOLD y luego la intercambia.",
+            "3/4 Modos: Sprint (40 líneas), Ultra (120s), Marathon y Survival tienen rankings separados.",
+            "4/4 Ajustes: puedes cambiar teclas, DAS/ARR y activar modo daltónico."
+        ],
+        _ => TutorialStepsEnglish
+    };
+
     private void LocalizeTextBlock(TextBlock item, string en, string pl, string de, string ru, string es)
     {
         if (MatchesAny(item.Text, en, pl, de, ru, es))
@@ -1400,6 +1440,14 @@ public partial class MainWindow : Window
         }
     }
 
+    private void LocalizeToolTip(Control control, string en, string pl, string de, string ru, string es)
+    {
+        if (control.ToolTip is string toolTip && MatchesAny(toolTip, en, pl, de, ru, es))
+        {
+            control.ToolTip = Lang(_uiLanguage, en, pl, de, ru, es);
+        }
+    }
+
     private void ApplyLanguageToUi()
     {
         Title = "StackMaster";
@@ -1411,6 +1459,9 @@ public partial class MainWindow : Window
             LocalizeTextBlock(item, "PAUSED", "PAUZA", "PAUSE", "ПАУЗА", "PAUSA");
             LocalizeTextBlock(item, "Press P to resume", "Naciśnij P aby wznowić", "Drücke P zum Fortsetzen", "Нажмите P, чтобы продолжить", "Pulsa P para reanudar");
             LocalizeTextBlock(item, "Press SPACE to return to menu", "Naciśnij SPACJĘ aby wrócić do menu", "Drücke LEERTASTE, um zum Menü zurückzukehren", "Нажмите ПРОБЕЛ, чтобы вернуться в меню", "Pulsa ESPACIO para volver al menú");
+            LocalizeTextBlock(item, "Panel 1 • No ads", "Panel 1 • Brak reklam", "Panel 1 • Keine Werbung", "Панель 1 • Нет рекламы", "Panel 1 • Sin anuncios");
+            LocalizeTextBlock(item, "Panel 2 • No ads", "Panel 2 • Brak reklam", "Panel 2 • Keine Werbung", "Панель 2 • Нет рекламы", "Panel 2 • Sin anuncios");
+            LocalizeTextBlock(item, "Panel 3 • No ads", "Panel 3 • Brak reklam", "Panel 3 • Keine Werbung", "Панель 3 • Нет рекламы", "Panel 3 • Sin anuncios");
             LocalizeTextBlock(item, "Arrows: move/rotate • Space: hard drop • P: pause • Esc", "Strzałki: ruch/obrót • Spacja: hard drop • P: pauza • Esc", "Pfeile: bewegen/drehen • Leertaste: Hard Drop • P: Pause • Esc", "Стрелки: движение/поворот • Пробел: жёсткий сброс • P: пауза • Esc", "Flechas: mover/girar • Espacio: hard drop • P: pausa • Esc");
             LocalizeTextBlock(item, "SESSION STATS", "STATYSTYKI SESJI", "SITZUNGSSTATISTIK", "СТАТИСТИКА СЕССИИ", "ESTADÍSTICAS DE SESIÓN");
             LocalizeTextBlock(item, "NEXT", "NASTĘPNY", "NÄCHSTER", "СЛЕДУЮЩИЙ", "SIGUIENTE");
@@ -1423,19 +1474,102 @@ public partial class MainWindow : Window
             LocalizeTextBlock(item, "Game mode", "Tryb gry", "Spielmodus", "Режим игры", "Modo de juego");
             LocalizeTextBlock(item, "Color theme", "Tryb kolorów", "Farbthema", "Цветовая тема", "Tema de color");
             LocalizeTextBlock(item, "Nickname", "Nick", "Spitzname", "Ник", "Apodo");
+            LocalizeTextBlock(item, "NICK", "NICK", "SPITZNAME", "НИК", "APODO");
+            LocalizeTextBlock(item, "TIMER", "TIMER", "TIMER", "ТАЙМЕР", "TEMPORIZADOR");
+            LocalizeTextBlock(item, "HOLD", "HOLD", "HOLD", "УДЕРЖАНИЕ", "HOLD");
+            LocalizeTextBlock(item, "TREND (20 games)", "TREND (20 gier)", "TREND (20 Spiele)", "ТРЕНД (20 игр)", "TENDENCIA (20 partidas)");
+            LocalizeTextBlock(item, "VERSION 1.1.0", "WERSJA 1.1.0", "VERSION 1.1.0", "ВЕРСИЯ 1.1.0", "VERSIÓN 1.1.0");
+            LocalizeTextBlock(item, "HIGHSCORE CONTROL CENTER (TOP 100)", "CENTRUM RANKINGU (TOP 100)", "HIGHSCORE-KONTROLLZENTRUM (TOP 100)", "ЦЕНТР ТАБЛИЦЫ РЕКОРДОВ (ТОП 100)", "CENTRO DE HIGHSCORES (TOP 100)");
+            LocalizeTextBlock(item, "Ranking trybu:", "Ranking trybu:", "Modus-Rangliste:", "Рейтинг режима:", "Ranking del modo:");
+            LocalizeTextBlock(item, "Enter password to unlock nickname editing and record removal", "Podaj hasło, aby odblokować edycję nicków i usuwanie rekordów", "Passwort eingeben, um Nickname-Bearbeitung und Löschen freizuschalten", "Введите пароль, чтобы разблокировать редактирование ников и удаление", "Introduce la contraseña para desbloquear edición de apodos y borrado");
+            LocalizeTextBlock(item, "Shows APM, PPS, average lock delay and line-clear stats in the right panel.", "Wyświetla APM, PPS, średni lock delay i statystyki czyszczenia linii po prawej.", "Zeigt APM, PPS, durchschnittliche Lock-Verzögerung und Zeilen-Stats rechts an.", "Показывает APM, PPS, среднюю задержку фиксации и статистику линий справа.", "Muestra APM, PPS, retardo medio de bloqueo y estadísticas de líneas a la derecha.");
+            LocalizeTextBlock(item, "Background music during gameplay. Slider below controls music volume.", "Muzyka w tle podczas rozgrywki. Suwak poniżej ustawia głośność.", "Hintergrundmusik im Spiel. Regler unten steuert die Lautstärke.", "Фоновая музыка во время игры. Ползунок ниже регулирует громкость.", "Música de fondo durante la partida. El control inferior ajusta volumen.");
+            LocalizeTextBlock(item, "Music volume", "Głośność muzyki", "Musiklautstärke", "Громкость музыки", "Volumen de música");
+            LocalizeTextBlock(item, "Action sounds (rotate, line clear, buttons, game over).", "Dźwięki akcji (obrót, linie, przyciski, game over).", "Aktionssounds (Drehen, Zeilen, Buttons, Game Over).", "Звуки действий (поворот, линии, кнопки, конец игры).", "Sonidos de acción (giro, líneas, botones, fin de juego).");
+            LocalizeTextBlock(item, "You can disable particles if they are distracting or too heavy for your hardware.", "Możesz wyłączyć cząsteczki, jeśli przeszkadzają lub obciążają sprzęt.", "Du kannst Partikel deaktivieren, wenn sie stören oder Hardware belasten.", "Можно отключить частицы, если они мешают или нагружают ПК.", "Puedes desactivar partículas si distraen o cargan tu hardware.");
+            LocalizeTextBlock(item, "Effects volume", "Głośność efektów", "Effektlautstärke", "Громкость эффектов", "Volumen de efectos");
+            LocalizeTextBlock(item, "Sterowanie", "Sterowanie", "Steuerung", "Управление", "Controles");
+            LocalizeTextBlock(item, "DAS is delayed auto-shift start time. ARR is repeat rate. Lower values = faster response.", "DAS to opóźnienie startu auto-przesuwu, ARR to tempo powtórzeń. Mniej = szybciej.", "DAS ist die Verzögerung, ARR die Wiederholrate. Niedriger = schneller.", "DAS — задержка авто-сдвига, ARR — частота повтора. Меньше = быстрее.", "DAS es el retardo, ARR la repetición. Menor valor = más rápido.");
+            LocalizeTextBlock(item, "DAS (ms)", "DAS (ms)", "DAS (ms)", "DAS (мс)", "DAS (ms)");
+            LocalizeTextBlock(item, "ARR (ms)", "ARR (ms)", "ARR (ms)", "ARR (мс)", "ARR (ms)");
+            LocalizeTextBlock(item, "Soft drop ARR (ms)", "Soft drop ARR (ms)", "Soft Drop ARR (ms)", "Soft drop ARR (мс)", "ARR soft drop (ms)");
+            LocalizeTextBlock(item, "Ruch w lewo", "Ruch w lewo", "Nach links", "Влево", "Mover izquierda");
+            LocalizeTextBlock(item, "Ruch w prawo", "Ruch w prawo", "Nach rechts", "Вправо", "Mover derecha");
+            LocalizeTextBlock(item, "Soft drop", "Soft drop", "Soft Drop", "Soft drop", "Soft drop");
+            LocalizeTextBlock(item, "Rotate", "Obrót", "Drehen", "Поворот", "Rotar");
+            LocalizeTextBlock(item, "Hard drop", "Hard drop", "Hard Drop", "Hard drop", "Hard drop");
+            LocalizeTextBlock(item, "Security", "Bezpieczeństwo", "Sicherheit", "Безопасность", "Seguridad");
+            LocalizeTextBlock(item, "Admin password protects highscore editing and ad panel management. Default password: admin.", "Hasło administratora chroni edycję rankingu i panel reklam. Domyślne: admin.", "Admin-Passwort schützt Highscore-Bearbeitung und Werbung. Standard: admin.", "Пароль администратора защищает редактирование рекордов и рекламу. По умолчанию: admin.", "La contraseña admin protege edición de highscores y anuncios. Por defecto: admin.");
+            LocalizeTextBlock(item, "Statystyki i progres", "Statystyki i progres", "Statistik und Fortschritt", "Статистика и прогресс", "Estadísticas y progreso");
+            LocalizeTextBlock(item, "AD MANAGEMENT", "ZARZĄDZANIE REKLAMAMI", "WERBEVERWALTUNG", "УПРАВЛЕНИЕ РЕКЛАМОЙ", "GESTIÓN DE ANUNCIOS");
+            LocalizeTextBlock(item, "Enter password", "Podaj hasło", "Passwort eingeben", "Введите пароль", "Introducir contraseña");
+            LocalizeTextBlock(item, "USTAWIENIA WYBRANEJ GRAFIKI", "USTAWIENIA WYBRANEJ GRAFIKI", "EINSTELLUNGEN DES AUSGEWÄHLTEN BILDS", "НАСТРОЙКИ ВЫБРАННОГО ИЗОБРАЖЕНИЯ", "AJUSTES DE LA IMAGEN SELECCIONADA");
+            LocalizeTextBlock(item, "Display time (sec)", "Czas wyświetlania (sek)", "Anzeigedauer (Sek)", "Время показа (сек)", "Tiempo de visualización (seg)");
+            LocalizeTextBlock(item, "Show on panels", "Pokaż na panelach", "Auf Panels anzeigen", "Показать на панелях", "Mostrar en paneles");
+            LocalizeTextBlock(item, "USTAWIENIA GLOBALNE", "USTAWIENIA GLOBALNE", "GLOBALE EINSTELLUNGEN", "ГЛОБАЛЬНЫЕ НАСТРОЙКИ", "AJUSTES GLOBALES");
+            LocalizeTextBlock(item, "Order mode", "Tryb kolejności", "Reihenfolgemodus", "Режим порядка", "Modo de orden");
+            LocalizeTextBlock(item, "Schedule refresh interval (sec)", "Co ile sekund odświeżać harmonogram", "Intervall der Plan-Aktualisierung (Sek)", "Интервал обновления расписания (сек)", "Intervalo de actualización (seg)");
+            LocalizeTextBlock(item, "Default duration for new images (sec)", "Domyślny czas dla nowych grafik (sek)", "Standarddauer für neue Bilder (Sek)", "Длительность по умолчанию для новых изображений (сек)", "Duración predeterminada para nuevas imágenes (seg)");
+            LocalizeTextBlock(item, "Szybki tutorial", "Szybki tutorial", "Kurzes Tutorial", "Быстрый туториал", "Tutorial rápido");
+            LocalizeTextBlock(item, "Co nowego", "Co nowego", "Was ist neu", "Что нового", "Novedades");
+            LocalizeTextBlock(item, "Esc: close game", "Esc: zamknij grę", "Esc: Spiel schließen", "Esc: закрыть игру", "Esc: cerrar juego");
         }
 
         foreach (var control in FindVisualChildren<Control>(this))
         {
+            LocalizeContent(control, "CO NOWEGO", "CO NOWEGO", "WAS IST NEU", "ЧТО НОВОГО", "NOVEDADES");
+            LocalizeContent(control, "NOWA GRA", "NOWA GRA", "NEUES SPIEL", "НОВАЯ ИГРА", "NUEVA PARTIDA");
+            LocalizeContent(control, "HIGHSCORE", "HIGHSCORE", "HIGHSCORE", "РЕКОРДЫ", "HIGHSCORE");
+            LocalizeContent(control, "SETTINGS", "USTAWIENIA", "EINSTELLUNGEN", "НАСТРОЙКИ", "AJUSTES");
             LocalizeContent(control, "Exit", "Wyjdź", "Beenden", "Выход", "Salir");
             LocalizeContent(control, "Start", "Start", "Start", "Старт", "Iniciar");
+            LocalizeContent(control, "1 - Slow", "1 - Wolny", "1 - Langsam", "1 - Медленно", "1 - Lento");
+            LocalizeContent(control, "2 - Dynamic", "2 - Dynamiczny", "2 - Dynamisch", "2 - Динамично", "2 - Dinámico");
+            LocalizeContent(control, "3 - Turbo", "3 - Turbo", "3 - Turbo", "3 - Турбо", "3 - Turbo");
+            LocalizeContent(control, "Neon Arena", "Neon Arena", "Neon Arena", "Неоновая арена", "Arena neón");
+            LocalizeContent(control, "Sunset Retro", "Sunset Retro", "Sunset Retro", "Ретро закат", "Retro atardecer");
+            LocalizeContent(control, "Fade Glow", "Fade Glow", "Fade Glow", "Светящийся градиент", "Brillo degradado");
+            LocalizeContent(control, "CONFIRM PASSWORD", "ZATWIERDŹ HASŁO", "PASSWORT BESTÄTIGEN", "ПОДТВЕРДИТЬ ПАРОЛЬ", "CONFIRMAR CONTRASEÑA");
+            LocalizeContent(control, "Colorblind mode (color + symbols)", "Tryb daltonistyczny (kolor + symbole)", "Farbenblindmodus (Farbe + Symbole)", "Режим дальтонизма (цвет + символы)", "Modo daltónico (color + símbolos)");
+            LocalizeContent(control, "Change password", "Zmień hasło", "Passwort ändern", "Сменить пароль", "Cambiar contraseña");
+            LocalizeContent(control, "Eksport statystyk CSV", "Eksport statystyk CSV", "Statistiken CSV exportieren", "Экспорт статистики CSV", "Exportar estadísticas CSV");
+            LocalizeContent(control, "Eksport statystyk JSON", "Eksport statystyk JSON", "Statistiken JSON exportieren", "Экспорт статистики JSON", "Exportar estadísticas JSON");
+            LocalizeContent(control, "Export highscores CSV", "Eksport rekordów CSV", "Highscores CSV exportieren", "Экспорт рекордов CSV", "Exportar highscores CSV");
+            LocalizeContent(control, "Reset stats", "Reset statystyk", "Statistiken zurücksetzen", "Сбросить статистику", "Restablecer estadísticas");
             LocalizeContent(control, "Show session stats in HUD", "Pokazuj statystyki sesji w HUD", "Sitzungsstatistiken im HUD anzeigen", "Показывать статистику сессии в HUD", "Mostrar estadísticas de sesión en HUD");
             LocalizeContent(control, "Enable music", "Włącz muzykę", "Musik aktivieren", "Включить музыку", "Activar música");
             LocalizeContent(control, "Enable sound effects", "Włącz efekty dźwiękowe", "Soundeffekte aktivieren", "Включить звуковые эффекты", "Activar efectos de sonido");
             LocalizeContent(control, "Show landing particles", "Pokaż cząsteczki przy lądowaniu", "Landepartikel anzeigen", "Показывать частицы при приземлении", "Mostrar partículas al aterrizar");
+            LocalizeContent(control, "Odblokuj", "Odblokuj", "Freischalten", "Разблокировать", "Desbloquear");
+            LocalizeContent(control, "Zamknij", "Zamknij", "Schließen", "Закрыть", "Cerrar");
+            LocalizeContent(control, "Add image", "Dodaj grafikę", "Bild hinzufügen", "Добавить изображение", "Agregar imagen");
+            LocalizeContent(control, "Delete", "Usuń", "Löschen", "Удалить", "Eliminar");
+            LocalizeContent(control, "Panel 1", "Panel 1", "Panel 1", "Панель 1", "Panel 1");
+            LocalizeContent(control, "Panel 2", "Panel 2", "Panel 2", "Панель 2", "Panel 2");
+            LocalizeContent(control, "Panel 3", "Panel 3", "Panel 3", "Панель 3", "Panel 3");
             LocalizeContent(control, "Save image settings", "Zapisz ustawienia grafiki", "Bildeinstellungen speichern", "Сохранить настройки изображения", "Guardar ajustes de imagen");
+            LocalizeContent(control, "Po kolei", "Po kolei", "Der Reihe nach", "По порядку", "En orden");
+            LocalizeContent(control, "Losowo", "Losowo", "Zufällig", "Случайно", "Aleatorio");
             LocalizeContent(control, "Save global settings", "Zapisz ustawienia globalne", "Globale Einstellungen speichern", "Сохранить глобальные настройки", "Guardar ajustes globales");
             LocalizeContent(control, "Ad options (password)", "Opcje reklam (hasło)", "Werbeoptionen (Passwort)", "Параметры рекламы (пароль)", "Opciones de anuncios (contraseña)");
+            LocalizeContent(control, "Skip", "Pomiń", "Überspringen", "Пропустить", "Saltar");
+            LocalizeContent(control, "Next", "Dalej", "Weiter", "Далее", "Siguiente");
+            LocalizeContent(control, "Finish", "Zakończ", "Fertig", "Завершить", "Finalizar");
+            LocalizeContent(control, "OK", "OK", "OK", "ОК", "OK");
+
+            LocalizeToolTip(control, "DAS: delayed auto-shift start after holding (ms).", "DAS: opóźnienie auto-przesuwu po przytrzymaniu (ms).", "DAS: Verzögerung nach Halten (ms).", "DAS: задержка авто-сдвига после удержания (мс).", "DAS: retraso tras mantener pulsado (ms).");
+            LocalizeToolTip(control, "ARR: repeat rate after DAS (ms).", "ARR: szybkość powtarzania po DAS (ms).", "ARR: Wiederholrate nach DAS (ms).", "ARR: частота повтора после DAS (мс).", "ARR: repetición tras DAS (ms).");
+            LocalizeToolTip(control, "Soft drop repeat speed while holding (ms). 0 = every frame.", "Jak szybko powtarzać soft drop przy przytrzymaniu (ms). 0 = co klatkę.", "Soft-Drop-Wiederholung beim Halten (ms). 0 = jedes Frame.", "Скорость повтора soft drop при удержании (мс). 0 = каждый кадр.", "Velocidad de repetición soft drop al mantener (ms). 0 = cada frame.");
+            LocalizeToolTip(control, "Left movement key.", "Klawisz ruchu w lewo.", "Taste für Bewegung nach links.", "Клавиша движения влево.", "Tecla para mover a la izquierda.");
+            LocalizeToolTip(control, "Right movement key.", "Klawisz ruchu w prawo.", "Taste für Bewegung nach rechts.", "Клавиша движения вправо.", "Tecla para mover a la derecha.");
+            LocalizeToolTip(control, "Soft drop key.", "Klawisz miękkiego opuszczania (soft drop).", "Taste für Soft Drop.", "Клавиша soft drop.", "Tecla de soft drop.");
+            LocalizeToolTip(control, "Rotate key.", "Klawisz obrotu klocka.", "Taste zum Drehen.", "Клавиша поворота.", "Tecla de rotación.");
+            LocalizeToolTip(control, "Hard drop key.", "Klawisz natychmiastowego zrzutu (hard drop).", "Taste für Hard Drop.", "Клавиша hard drop.", "Tecla de hard drop.");
+            LocalizeToolTip(control, "Hold piece key.", "Klawisz przechowania klocka (hold).", "Taste für Hold.", "Клавиша hold.", "Tecla de hold.");
+            LocalizeToolTip(control, "Export recent sessions to CSV.", "Eksport ostatnich sesji do CSV.", "Letzte Sitzungen als CSV exportieren.", "Экспорт последних сессий в CSV.", "Exportar sesiones recientes a CSV.");
+            LocalizeToolTip(control, "Export recent sessions to JSON.", "Eksport ostatnich sesji do JSON.", "Letzte Sitzungen als JSON exportieren.", "Экспорт последних сессий в JSON.", "Exportar sesiones recientes a JSON.");
+            LocalizeToolTip(control, "Export per-mode highscores to CSV.", "Eksport rankingów per tryb do CSV.", "Highscores je Modus als CSV exportieren.", "Экспорт рекордов по режимам в CSV.", "Exportar highscores por modo a CSV.");
+            LocalizeToolTip(control, "Clears session history, trend chart and current stat counters.", "Czyści historię sesji, wykres trendu i bieżące liczniki statystyk.", "Löscht Sitzungsverlauf, Trenddiagramm und aktuelle Zähler.", "Очищает историю сессий, график тренда и текущие счётчики.", "Limpia historial de sesión, gráfico y contadores actuales.");
         }
 
         var modeItems = new[] { "Classic", "Survival", "Sprint (40 lines)", "Ultra (120s)", "Marathon" };
@@ -2086,7 +2220,7 @@ public partial class MainWindow : Window
             _adminPassword = string.IsNullOrWhiteSpace(settings.AdminPassword) ? DefaultAdminPassword : settings.AdminPassword;
             _uiLanguage = ParseLanguageCode(settings.LanguageCode);
             LanguageComboBox.SelectedIndex = (int)_uiLanguage;
-            AdminPasswordStatusText.Text = $"Admin password set (default: {DefaultAdminPassword}).";
+            AdminPasswordStatusText.Text = $"{Lang(_uiLanguage, "Admin password set (default", "Hasło administratora ustawione (domyślne", "Admin-Passwort gesetzt (Standard", "Пароль администратора установлен (по умолчанию", "Contraseña admin establecida (por defecto")}: {DefaultAdminPassword}).";
             ApplyControlSettingsToUi();
             SessionStatsCard.Visibility = _showSessionStats ? Visibility.Visible : Visibility.Collapsed;
             ApplyAudioSettingsUi();
@@ -2360,7 +2494,7 @@ public partial class MainWindow : Window
         PlayEffect("buttonClick");
         var dialog = new OpenFileDialog
         {
-            Title = "Select an image",
+            Title = Lang(_uiLanguage, "Select an image", "Wybierz grafikę", "Bild auswählen", "Выбрать изображение", "Seleccionar imagen"),
             Filter = "Obrazy (*.png;*.jpg;*.jpeg;*.bmp)|*.png;*.jpg;*.jpeg;*.bmp"
         };
 
@@ -2385,7 +2519,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to add image: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show($"{Lang(_uiLanguage, "Failed to add image", "Nie udało się dodać grafiki", "Bild konnte nicht hinzugefügt werden", "Не удалось добавить изображение", "No se pudo agregar la imagen")}: {ex.Message}", Lang(_uiLanguage, "Error", "Błąd", "Fehler", "Ошибка", "Error"), MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -2482,7 +2616,7 @@ public partial class MainWindow : Window
         PlayEffect("buttonClick");
         if (AdListBox.SelectedItem is not AdEntry selected)
         {
-            MessageBox.Show("Select an image from the list first.", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(Lang(_uiLanguage, "Select an image from the list first.", "Najpierw wybierz grafikę z listy.", "Wähle zuerst ein Bild aus der Liste.", "Сначала выберите изображение из списка.", "Primero selecciona una imagen de la lista."), Lang(_uiLanguage, "Information", "Informacja", "Information", "Информация", "Información"), MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
@@ -2515,7 +2649,7 @@ public partial class MainWindow : Window
 
         if (panels == AdPanel.None)
         {
-            MessageBox.Show("Select at least one panel for this image.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(Lang(_uiLanguage, "Select at least one panel for this image.", "Wybierz co najmniej jeden panel dla tej grafiki.", "Wähle mindestens ein Panel für dieses Bild.", "Выберите как минимум одну панель для этого изображения.", "Selecciona al menos un panel para esta imagen."), Lang(_uiLanguage, "Error", "Błąd", "Fehler", "Ошибка", "Error"), MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
@@ -2596,7 +2730,7 @@ public partial class MainWindow : Window
     {
         PlayEffect("buttonClick");
         HighscoreManageHintText.Text = string.Empty;
-        HighscoreAuthStatusText.Text = _isHighscoreUnlocked ? "Edit mode active." : "Read-only mode. Confirm password to edit.";
+        HighscoreAuthStatusText.Text = _isHighscoreUnlocked ? Lang(_uiLanguage, "Edit mode active.", "Tryb edycji aktywny.", "Bearbeitungsmodus aktiv.", "Режим редактирования активен.", "Modo edición activo.") : Lang(_uiLanguage, "Read-only mode. Confirm password to edit.", "Tryb tylko podglądu. Potwierdź hasło, aby edytować.", "Nur-Lese-Modus. Passwort bestätigen, um zu bearbeiten.", "Режим только чтения. Подтвердите пароль для редактирования.", "Modo solo lectura. Confirma contraseña para editar.");
         ShowStartMenuSection(StartMenuSection.Highscore);
     }
 
@@ -2629,7 +2763,7 @@ public partial class MainWindow : Window
             return true;
         }
 
-        HighscoreManageHintText.Text = "Confirm password first to manage records.";
+        HighscoreManageHintText.Text = Lang(_uiLanguage, "Confirm password first to manage records.", "Najpierw zatwierdź hasło, aby zarządzać rekordami.", "Bestätige zuerst das Passwort, um Rekorde zu verwalten.", "Сначала подтвердите пароль для управления рекордами.", "Confirma la contraseña primero para gestionar récords.");
         return false;
     }
 
@@ -2639,18 +2773,18 @@ public partial class MainWindow : Window
         if (HighscorePasswordBox.Password != _adminPassword)
         {
             _isHighscoreUnlocked = false;
-            HighscoreAuthStatusText.Text = "❌ Wrong password";
+            HighscoreAuthStatusText.Text = Lang(_uiLanguage, "❌ Wrong password", "❌ Błędne hasło", "❌ Falsches Passwort", "❌ Неверный пароль", "❌ Contraseña incorrecta");
             HighscoreAuthStatusText.Foreground = new SolidColorBrush(Color.FromRgb(252, 165, 165));
-            HighscoreManageHintText.Text = "Incorrect password. Editing locked.";
+            HighscoreManageHintText.Text = Lang(_uiLanguage, "Incorrect password. Editing locked.", "Niepoprawne hasło. Edycja zablokowana.", "Falsches Passwort. Bearbeitung gesperrt.", "Неверный пароль. Редактирование заблокировано.", "Contraseña incorrecta. Edición bloqueada.");
             RefreshHighScores();
             return;
         }
 
         _isHighscoreUnlocked = true;
         HighscorePasswordBox.Password = string.Empty;
-        HighscoreAuthStatusText.Text = "✅ Editing unlocked: you can edit nicknames or delete records.";
+        HighscoreAuthStatusText.Text = Lang(_uiLanguage, "✅ Editing unlocked: you can edit nicknames or delete records.", "✅ Edycja odblokowana: możesz zmieniać nicki lub usuwać rekordy.", "✅ Bearbeitung entsperrt: Du kannst Namen ändern oder löschen.", "✅ Редактирование разблокировано: можно менять ники и удалять.", "✅ Edición desbloqueada: puedes editar nicks o borrar registros.");
         HighscoreAuthStatusText.Foreground = new SolidColorBrush(Color.FromRgb(147, 197, 253));
-        HighscoreManageHintText.Text = "Edit mode active.";
+        HighscoreManageHintText.Text = Lang(_uiLanguage, "Edit mode active.", "Tryb edycji aktywny.", "Bearbeitungsmodus aktiv.", "Режим редактирования активен.", "Modo edición activo.");
         RefreshHighScores();
     }
 
@@ -2665,7 +2799,7 @@ public partial class MainWindow : Window
         var modeScores = GetHighScoresForMode(_selectedHighscoreMode);
         if (sender is not Button { Tag: int index } || index < 0 || index >= modeScores.Count)
         {
-            HighscoreManageHintText.Text = "Failed to delete record.";
+            HighscoreManageHintText.Text = Lang(_uiLanguage, "Failed to delete record.", "Nie udało się usunąć rekordu.", "Eintrag konnte nicht gelöscht werden.", "Не удалось удалить запись.", "No se pudo eliminar el registro.");
             return;
         }
 
@@ -2673,7 +2807,7 @@ public partial class MainWindow : Window
         RefreshHighScores();
         SaveHighScores();
         UpdateHud();
-        HighscoreManageHintText.Text = "Record deleted.";
+        HighscoreManageHintText.Text = Lang(_uiLanguage, "Record deleted.", "Rekord usunięty.", "Eintrag gelöscht.", "Запись удалена.", "Registro eliminado.");
     }
 
     private void HighscoreEditNameButton_Click(object sender, RoutedEventArgs e)
@@ -2687,7 +2821,7 @@ public partial class MainWindow : Window
         var modeScores = GetHighScoresForMode(_selectedHighscoreMode);
         if (sender is not Button { Tag: int index } || index < 0 || index >= modeScores.Count)
         {
-            HighscoreManageHintText.Text = "Failed to edit record.";
+            HighscoreManageHintText.Text = Lang(_uiLanguage, "Failed to edit record.", "Nie udało się edytować rekordu.", "Eintrag konnte nicht bearbeitet werden.", "Не удалось отредактировать запись.", "No se pudo editar el registro.");
             return;
         }
 
@@ -2695,14 +2829,14 @@ public partial class MainWindow : Window
         var editor = rowBorder?.Tag as TextBox;
         if (editor is null)
         {
-            HighscoreManageHintText.Text = "Brak pola edycji dla tego wpisu.";
+            HighscoreManageHintText.Text = Lang(_uiLanguage, "Missing edit field for this entry.", "Brak pola edycji dla tego wpisu.", "Bearbeitungsfeld für diesen Eintrag fehlt.", "Нет поля редактирования для этой записи.", "Falta el campo de edición para esta entrada.");
             return;
         }
 
         editor.Visibility = Visibility.Visible;
         editor.Focus();
         editor.SelectAll();
-        HighscoreManageHintText.Text = "Wpisz nowy nick i kliknij ✔.";
+        HighscoreManageHintText.Text = Lang(_uiLanguage, "Type a new nickname and click ✔.", "Wpisz nowy nick i kliknij ✔.", "Gib einen neuen Namen ein und klicke ✔.", "Введите новый ник и нажмите ✔.", "Escribe un nuevo apodo y pulsa ✔.");
     }
 
     private void HighscoreApplyNameButton_Click(object sender, RoutedEventArgs e)
@@ -2716,7 +2850,7 @@ public partial class MainWindow : Window
         var modeScores = GetHighScoresForMode(_selectedHighscoreMode);
         if (sender is not Button { Tag: int index } || index < 0 || index >= modeScores.Count)
         {
-            HighscoreManageHintText.Text = "Failed to save nickname.";
+            HighscoreManageHintText.Text = Lang(_uiLanguage, "Failed to save nickname.", "Nie udało się zapisać nicku.", "Nickname konnte nicht gespeichert werden.", "Не удалось сохранить ник.", "No se pudo guardar el apodo.");
             return;
         }
 
@@ -2724,14 +2858,14 @@ public partial class MainWindow : Window
         var editor = rowBorder?.Tag as TextBox;
         if (editor is null)
         {
-            HighscoreManageHintText.Text = "Brak pola edycji dla tego wpisu.";
+            HighscoreManageHintText.Text = Lang(_uiLanguage, "Missing edit field for this entry.", "Brak pola edycji dla tego wpisu.", "Bearbeitungsfeld für diesen Eintrag fehlt.", "Нет поля редактирования для этой записи.", "Falta el campo de edición para esta entrada.");
             return;
         }
 
         var newName = editor.Text.Trim();
         if (string.IsNullOrWhiteSpace(newName))
         {
-            HighscoreManageHintText.Text = "Nickname cannot be empty.";
+            HighscoreManageHintText.Text = Lang(_uiLanguage, "Nickname cannot be empty.", "Nick nie może być pusty.", "Nickname darf nicht leer sein.", "Ник не может быть пустым.", "El apodo no puede estar vacío.");
             return;
         }
 
@@ -2740,7 +2874,7 @@ public partial class MainWindow : Window
         SaveHighScores();
         RefreshHighScores();
         UpdateHud();
-        HighscoreManageHintText.Text = "Nick zaktualizowany.";
+        HighscoreManageHintText.Text = Lang(_uiLanguage, "Nickname updated.", "Nick zaktualizowany.", "Nickname aktualisiert.", "Ник обновлён.", "Apodo actualizado.");
     }
 
     private void ResetAdManagerUi()
@@ -2800,7 +2934,7 @@ public partial class MainWindow : Window
 
         if (passwordBox.Password != _adminPassword)
         {
-            hintText.Text = "Wrong password";
+            hintText.Text = Lang(_uiLanguage, "Wrong password", "Błędne hasło", "Falsches Passwort", "Неверный пароль", "Contraseña incorrecta");
             return;
         }
 
@@ -2934,14 +3068,14 @@ public partial class MainWindow : Window
         var newPassword = AdminPasswordSettingsBox.Password.Trim();
         if (newPassword.Length < 4)
         {
-            AdminPasswordStatusText.Text = "Password must be at least 4 characters long.";
+            AdminPasswordStatusText.Text = Lang(_uiLanguage, "Password must be at least 4 characters long.", "Hasło musi mieć co najmniej 4 znaki.", "Passwort muss mindestens 4 Zeichen haben.", "Пароль должен быть не короче 4 символов.", "La contraseña debe tener al menos 4 caracteres.");
             AdminPasswordStatusText.Foreground = new SolidColorBrush(Color.FromRgb(252, 165, 165));
             return;
         }
 
         _adminPassword = newPassword;
         AdminPasswordSettingsBox.Password = string.Empty;
-        AdminPasswordStatusText.Text = "✅ Administrator password updated.";
+        AdminPasswordStatusText.Text = Lang(_uiLanguage, "✅ Administrator password updated.", "✅ Hasło administratora zaktualizowane.", "✅ Administratorpasswort aktualisiert.", "✅ Пароль администратора обновлён.", "✅ Contraseña de administrador actualizada.");
         AdminPasswordStatusText.Foreground = new SolidColorBrush(Color.FromRgb(147, 197, 253));
         SaveSettings();
     }
@@ -3047,7 +3181,7 @@ public partial class MainWindow : Window
 
         DrawTrendChart();
         UpdateHud();
-        ExportStatusText.Text = "✅ Stats reset (history + chart + session counters).";
+        ExportStatusText.Text = Lang(_uiLanguage, "✅ Stats reset (history + chart + session counters).", "✅ Statystyki zresetowane (historia + wykres + liczniki sesji).", "✅ Statistiken zurückgesetzt (Verlauf + Diagramm + Zähler).", "✅ Статистика сброшена (история + график + счётчики).", "✅ Estadísticas reiniciadas (historial + gráfico + contadores).");
     }
 
     private void KeyBindingTextBox_GotFocus(object sender, RoutedEventArgs e)
@@ -3055,7 +3189,7 @@ public partial class MainWindow : Window
         if (sender is TextBox textBox)
         {
             textBox.SelectAll();
-            ExportStatusText.Text = "Press a key to bind this control.";
+            ExportStatusText.Text = Lang(_uiLanguage, "Press a key to bind this control.", "Naciśnij klawisz, aby przypisać sterowanie.", "Drücke eine Taste, um die Steuerung zuzuweisen.", "Нажмите клавишу для назначения управления.", "Pulsa una tecla para asignar este control.");
         }
     }
 
@@ -3074,7 +3208,7 @@ public partial class MainWindow : Window
 
         textBox.Text = key.ToString();
         SaveSettings();
-        ExportStatusText.Text = $"✅ Przypisano klawisz: {key}";
+        ExportStatusText.Text = $"{Lang(_uiLanguage, "✅ Assigned key", "✅ Przypisano klawisz", "✅ Taste zugewiesen", "✅ Клавиша назначена", "✅ Tecla asignada")}: {key}";
         Keyboard.ClearFocus();
         e.Handled = true;
     }
@@ -3100,7 +3234,7 @@ public partial class MainWindow : Window
         }
 
         File.WriteAllText(save.FileName, sb.ToString());
-        ExportStatusText.Text = $"✅ Saved CSV: {save.FileName}";
+        ExportStatusText.Text = $"{Lang(_uiLanguage, "✅ Saved CSV", "✅ Zapisano CSV", "✅ CSV gespeichert", "✅ CSV сохранён", "✅ CSV guardado")}: {save.FileName}";
     }
 
     private void ExportStatsJsonButton_Click(object sender, RoutedEventArgs e)
@@ -3118,7 +3252,7 @@ public partial class MainWindow : Window
 
         var json = JsonSerializer.Serialize(_sessionHistory, JsonWriteOptions);
         File.WriteAllText(save.FileName, json);
-        ExportStatusText.Text = $"✅ Saved JSON: {save.FileName}";
+        ExportStatusText.Text = $"{Lang(_uiLanguage, "✅ Saved JSON", "✅ Zapisano JSON", "✅ JSON gespeichert", "✅ JSON сохранён", "✅ JSON guardado")}: {save.FileName}";
     }
 
     private void ExportHighscoresCsvButton_Click(object sender, RoutedEventArgs e)
@@ -3146,7 +3280,7 @@ public partial class MainWindow : Window
         }
 
         File.WriteAllText(save.FileName, sb.ToString());
-        ExportStatusText.Text = $"✅ Saved highscores CSV: {save.FileName}";
+        ExportStatusText.Text = $"{Lang(_uiLanguage, "✅ Saved highscores CSV", "✅ Zapisano rekordy CSV", "✅ Highscores-CSV gespeichert", "✅ CSV рекордов сохранён", "✅ CSV de highscores guardado")}: {save.FileName}";
     }
 
     private void LoadOnboardingState()
@@ -3179,15 +3313,15 @@ public partial class MainWindow : Window
         if (!_onboardingState.TutorialCompleted)
         {
             _tutorialStepIndex = 0;
-            TutorialStepText.Text = TutorialSteps[_tutorialStepIndex];
-            TutorialNextButton.Content = "Next";
+            TutorialStepText.Text = GetTutorialSteps()[_tutorialStepIndex];
+            TutorialNextButton.Content = Lang(_uiLanguage, "Next", "Dalej", "Weiter", "Далее", "Siguiente");
             TutorialOverlay.Visibility = Visibility.Visible;
             return;
         }
 
         if (!string.Equals(_onboardingState.LastSeenWhatsNewVersion, CurrentWhatsNewVersion, StringComparison.Ordinal))
         {
-            WhatsNewText.Text = WhatsNewMessage;
+            WhatsNewText.Text = GetWhatsNewMessage();
             WhatsNewOverlay.Visibility = Visibility.Visible;
         }
     }
@@ -3195,7 +3329,7 @@ public partial class MainWindow : Window
     private void TutorialNextButton_Click(object sender, RoutedEventArgs e)
     {
         _tutorialStepIndex++;
-        if (_tutorialStepIndex >= TutorialSteps.Length)
+        if (_tutorialStepIndex >= GetTutorialSteps().Length)
         {
             TutorialOverlay.Visibility = Visibility.Collapsed;
             _onboardingState = _onboardingState with { TutorialCompleted = true };
@@ -3204,8 +3338,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        TutorialStepText.Text = TutorialSteps[_tutorialStepIndex];
-        TutorialNextButton.Content = _tutorialStepIndex == TutorialSteps.Length - 1 ? "Finish" : "Next";
+        TutorialStepText.Text = GetTutorialSteps()[_tutorialStepIndex];
+        TutorialNextButton.Content = _tutorialStepIndex == GetTutorialSteps().Length - 1 ? Lang(_uiLanguage, "Finish", "Zakończ", "Fertig", "Завершить", "Finalizar") : Lang(_uiLanguage, "Next", "Dalej", "Weiter", "Далее", "Siguiente");
     }
 
     private void SkipTutorialButton_Click(object sender, RoutedEventArgs e)
@@ -3225,7 +3359,7 @@ public partial class MainWindow : Window
 
     private void OpenWhatsNewButton_Click(object sender, RoutedEventArgs e)
     {
-        WhatsNewText.Text = WhatsNewMessage;
+        WhatsNewText.Text = GetWhatsNewMessage();
         WhatsNewOverlay.Visibility = Visibility.Visible;
     }
 
