@@ -1,13 +1,13 @@
-# Tetris (WPF)
+# StackMaster (WPF)
 
-Arcade Tetris clone in C# / WPF with multiple modes, per-mode highscores, ghost piece, hold, configurable controls, DAS/ARR and ad panel manager.
+Arcade stack puzzle game in C# / WPF with multiple modes, per-mode highscores, ghost piece, hold, configurable controls, DAS/ARR and ad panel manager.
 
 ## Features
 - Classic, Survival, Sprint (40 lines), Ultra (120s), Marathon.
 - 7-bag randomizer.
 - Ghost piece and hold piece.
 - Per-mode highscores (JSON persistence), up to Top 100 entries per mode.
-- Session stats in HUD: APM / PPS / average lock delay / Tetris clears.
+- Session stats in HUD: APM / PPS / average lock delay / quad-line clears.
 - Configurable keybinds and DAS/ARR in settings, plus toggles for session-stats HUD, music and effects.
 - Colorblind accessibility mode with symbol/pattern overlays on blocks.
 - Export session stats/highscores to CSV/JSON.

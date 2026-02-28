@@ -21,4 +21,5 @@ internal record GameSettings(
     bool? MusicEnabled,
     bool? EffectsEnabled,
     bool? LockParticlesEnabled,
-    string? AdminPassword);
+    string? AdminPassword,
+    string? LanguageCode);

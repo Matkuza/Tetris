@@ -20,6 +20,15 @@ namespace Tetris;
 
 public partial class MainWindow : Window
 {
+    private enum UiLanguage
+    {
+        English,
+        Polish,
+        German,
+        Russian,
+        Spanish
+    }
+
     private const int BoardWidth = 10;
     private const int BoardHeight = 20;
     private const string DefaultAdminPassword = "admin";
@@ -80,13 +89,13 @@ public partial class MainWindow : Window
     private OnboardingState _onboardingState = new(false, string.Empty);
     private int _tutorialStepIndex;
     private const string CurrentWhatsNewVersion = "1.2.0";
-    private const string WhatsNewMessage = "• Ustawienia dostały nowe przełączniki (HUD statystyk, muzyka, efekty) z opisami.\n• Dodano zmianę hasła administratora (domyślnie: admin).\n• Ranking rozszerzono do TOP 100 na tryb.";
+    private const string WhatsNewMessage = "• Settings now include new toggles (session HUD, music, effects) with descriptions.\n• Added administrator password change (default: admin).\n• Highscores expanded to TOP 100 per mode.";
     private static readonly string[] TutorialSteps =
     [
-        "1/4 Ruch: ←/→ przesuwają klocek, ↑ obraca, Spacja robi hard drop.",
-        "2/4 Hold: klawisz C odkłada klocek do HOLD i zamienia go później.",
-        "3/4 Tryby: Sprint (40 linii), Ultra (120s), Marathon i Survival mają osobne rankingi.",
-        "4/4 Ustawienia: możesz zmienić klawisze, DAS/ARR i włączyć tryb daltonistyczny."
+        "1/4 Move: ←/→ shift the piece, ↑ rotates, Space performs hard drop.",
+        "2/4 Hold: key C stores the piece in HOLD and swaps it later.",
+        "3/4 Modes: Sprint (40 lines), Ultra (120s), Marathon and Survival have separate highscores.",
+        "4/4 Settings: you can change keys, DAS/ARR and enable colorblind mode."
     ];
 
     private readonly Dictionary<string, MediaPlayer> _effectPlayers = new();
@@ -112,7 +121,7 @@ public partial class MainWindow : Window
     private long _lastSoftDropRepeatMs;
     private int _piecesLocked;
     private int _playerActions;
-    private int _tetrisLineClears;
+    private int _quadLineClears;
     private long _totalLockDelayMs;
     private int _lockSamples;
     private long? _groundContactStartedMs;
@@ -123,6 +132,7 @@ public partial class MainWindow : Window
     private bool _lockParticlesEnabled = true;
     private string _adminPassword = DefaultAdminPassword;
     private long _lastFallParticleMs;
+    private UiLanguage _uiLanguage = UiLanguage.English;
 
 
     private Color _emptyCellColor = Color.FromRgb(12, 20, 38);
@@ -249,6 +259,7 @@ public partial class MainWindow : Window
         ApplyLoadedGlobalSettingsToUi();
         ApplyControlSettingsToUi();
         ApplyTheme();
+        ApplyLanguageToUi();
         UpdateBoardLayout();
         Draw();
         RotateAds();
@@ -593,7 +604,7 @@ public partial class MainWindow : Window
         _sessionStopwatch.Start();
         _piecesLocked = 0;
         _playerActions = 0;
-        _tetrisLineClears = 0;
+        _quadLineClears = 0;
         _totalLockDelayMs = 0;
         _lockSamples = 0;
         _groundContactStartedMs = null;
@@ -603,7 +614,7 @@ public partial class MainWindow : Window
         }
 
         var nick = NickTextBox.Text.Trim();
-        PlayerNameText.Text = string.IsNullOrWhiteSpace(nick) ? "Gracz" : nick;
+        PlayerNameText.Text = string.IsNullOrWhiteSpace(nick) ? "Player" : nick;
 
         SetTimerSpeed();
         _nextPiece = CreateRandomPiece();
@@ -683,7 +694,7 @@ public partial class MainWindow : Window
             var ultraElapsedMs = (int)_ultraStopwatch.ElapsedMilliseconds;
             if (ultraElapsedMs >= 120000)
             {
-                FinishGame("ULTRA ZAKOŃCZONE • Spacja: menu start • Esc: zamknij");
+                FinishGame("ULTRA FINISHED • Space: start menu • Esc: close");
                 return;
             }
         }
@@ -782,7 +793,7 @@ public partial class MainWindow : Window
 
     private void OnGameOver()
     {
-        FinishGame("PRZEGRAŁEŚ • Spacja: menu start • Esc: zamknij", true);
+        FinishGame("GAME OVER • Space: start menu • Esc: close", true);
     }
 
     private void FinishGame(string statusText, bool playDefeatSound = false)
@@ -823,7 +834,7 @@ public partial class MainWindow : Window
 
     private void RegisterScore()
     {
-        var nick = string.IsNullOrWhiteSpace(PlayerNameText.Text) ? "Gracz" : PlayerNameText.Text;
+        var nick = string.IsNullOrWhiteSpace(PlayerNameText.Text) ? "Player" : PlayerNameText.Text;
         var modeScores = GetHighScoresForMode(_activeGameMode);
         modeScores.Add(new ScoreEntry(nick, _score));
         modeScores.Sort((a, b) => b.Points.CompareTo(a.Points));
@@ -1208,7 +1219,7 @@ public partial class MainWindow : Window
         _score += GameEngine.CalculateScoreForClearedLines(removedRows.Count);
         if (removedRows.Count == 4)
         {
-            _tetrisLineClears++;
+            _quadLineClears++;
         }
 
         SetTimerSpeed();
@@ -1218,7 +1229,7 @@ public partial class MainWindow : Window
 
         if (_activeGameMode == GameMode.Sprint && _linesCleared >= 40)
         {
-            FinishGame("SPRINT UKOŃCZONY • Spacja: menu start • Esc: zamknij");
+            FinishGame("SPRINT COMPLETED • Space: start menu • Esc: close");
         }
 
         return removedRows;
@@ -1283,14 +1294,14 @@ public partial class MainWindow : Window
         var averageLockDelay = _lockSamples == 0 ? 0 : (int)Math.Round((double)_totalLockDelayMs / _lockSamples);
         var timerText = _activeGameMode switch
         {
-            GameMode.Sprint => $"{Math.Max(0, 40 - _linesCleared)} linii",
+            GameMode.Sprint => $"{Math.Max(0, 40 - _linesCleared)} {TranslateWord("lines")}",
             GameMode.Ultra => TimeSpan.FromSeconds(Math.Max(0, 120 - ultraElapsedSeconds)).ToString(@"mm\:ss"),
-            GameMode.Marathon => $"Lvl+ {Math.Max(0, 10 - (_linesCleared % 10))} linii",
+            GameMode.Marathon => $"Lvl+ {Math.Max(0, 10 - (_linesCleared % 10))} {TranslateWord("lines")}",
             _ => "--:--"
         };
         ModeTimerText.Text = timerText;
         SessionStatsCard.Visibility = _showSessionStats ? Visibility.Visible : Visibility.Collapsed;
-        SessionStatsText.Text = $"APM: {apm:0.0} • PPS: {pps:0.00} • Lock: {averageLockDelay}ms • Tetris: {_tetrisLineClears}";
+        SessionStatsText.Text = $"APM: {apm:0.0} • PPS: {pps:0.00} • Lock: {averageLockDelay}ms • Clears: {_quadLineClears}";
         DrawTrendChart();
 
         if (!_gameOver)
@@ -1301,11 +1312,127 @@ public partial class MainWindow : Window
                 GameMode.Sprint => "SPRINT 40",
                 GameMode.Ultra => $"ULTRA {timerText}",
                 GameMode.Marathon => "MARATHON",
-                _ => "KLASYCZNY"
+                _ => TranslateWord("CLASSIC")
             };
             StatusText.Text = _isPaused
-                ? "PAUZA • P: wznów • Esc"
-                : $"{modeText} • {_moveLeftKey}/{_moveRightKey}: ruch • {_rotateKey}: obrót • {_hardDropKey}: zrzut • {_holdKey}: hold • P: pauza • Esc";
+                ? TranslateSentence("PAUSED • P: resume • Esc")
+                : $"{modeText} • {_moveLeftKey}/{_moveRightKey} : move • {_rotateKey}: rotate • {_hardDropKey}: drop • {_holdKey}: hold • P: pause • Esc";
+        }
+    }
+
+    private string TranslateWord(string text) => _uiLanguage switch
+    {
+        UiLanguage.Polish => text switch
+        {
+            "lines" => "linii",
+            "CLASSIC" => "KLASYCZNY",
+            _ => text
+        },
+        UiLanguage.German => text switch
+        {
+            "lines" => "Zeilen",
+            "CLASSIC" => "KLASSISCH",
+            _ => text
+        },
+        UiLanguage.Russian => text switch
+        {
+            "lines" => "линий",
+            "CLASSIC" => "КЛАССИКА",
+            _ => text
+        },
+        UiLanguage.Spanish => text switch
+        {
+            "lines" => "líneas",
+            "CLASSIC" => "CLÁSICO",
+            _ => text
+        },
+        _ => text
+    };
+
+    private string TranslateSentence(string text) => _uiLanguage switch
+    {
+        UiLanguage.Polish when text == "PAUSED • P: resume • Esc" => "PAUZA • P: wznów • Esc",
+        UiLanguage.German when text == "PAUSED • P: resume • Esc" => "PAUSE • P: fortsetzen • Esc",
+        UiLanguage.Russian when text == "PAUSED • P: resume • Esc" => "ПАУЗА • P: продолжить • Esc",
+        UiLanguage.Spanish when text == "PAUSED • P: resume • Esc" => "PAUSA • P: reanudar • Esc",
+        _ => text
+    };
+
+    private void ApplyLanguageToUi()
+    {
+        Title = "StackMaster";
+
+        static string Lang(UiLanguage lang, string en, string pl, string de, string ru, string es) => lang switch
+        {
+            UiLanguage.Polish => pl,
+            UiLanguage.German => de,
+            UiLanguage.Russian => ru,
+            UiLanguage.Spanish => es,
+            _ => en
+        };
+
+        foreach (var item in FindVisualChildren<TextBlock>(this))
+        {
+            item.Text = item.Text switch
+            {
+                "STACKMASTER" => "STACKMASTER",
+                "MAIN MENU" => Lang(_uiLanguage, "MAIN MENU", "MENU GŁÓWNE", "HAUPTMENÜ", "ГЛАВНОЕ МЕНЮ", "MENÚ PRINCIPAL"),
+                "GAME OVER" => Lang(_uiLanguage, "GAME OVER", "KONIEC GRY", "SPIEL VORBEI", "КОНЕЦ ИГРЫ", "FIN DEL JUEGO"),
+                "PAUSED" => Lang(_uiLanguage, "PAUSED", "PAUZA", "PAUSE", "ПАУЗА", "PAUSA"),
+                "Press P to resume" => Lang(_uiLanguage, "Press P to resume", "Naciśnij P aby wznowić", "Drücke P zum Fortsetzen", "Нажмите P, чтобы продолжить", "Pulsa P para reanudar"),
+                "Press SPACE to return to menu" => Lang(_uiLanguage, "Press SPACE to return to menu", "Naciśnij SPACJĘ aby wrócić do menu", "Drücke LEERTASTE, um zum Menü zurückzukehren", "Нажмите ПРОБЕЛ, чтобы вернуться в меню", "Pulsa ESPACIO para volver al menú"),
+                "Arrows: move/rotate • Space: hard drop • P: pause • Esc" => Lang(_uiLanguage, "Arrows: move/rotate • Space: hard drop • P: pause • Esc", "Strzałki: ruch/obrót • Spacja: hard drop • P: pauza • Esc", "Pfeile: bewegen/drehen • Leertaste: Hard Drop • P: Pause • Esc", "Стрелки: движение/поворот • Пробел: жёсткий сброс • P: пауза • Esc", "Flechas: mover/girar • Espacio: hard drop • P: pausa • Esc"),
+                "SESSION STATS" => Lang(_uiLanguage, "SESSION STATS", "STATYSTYKI SESJI", "SITZUNGSSTATISTIK", "СТАТИСТИКА СЕССИИ", "ESTADÍSTICAS DE SESIÓN"),
+                "NEXT" => Lang(_uiLanguage, "NEXT", "NASTĘPNY", "NÄCHSTER", "СЛЕДУЮЩИЙ", "SIGUIENTE"),
+                "SCORE" => Lang(_uiLanguage, "SCORE", "WYNIK", "PUNKTE", "СЧЁТ", "PUNTAJE"),
+                "LEVEL" => Lang(_uiLanguage, "LEVEL", "POZIOM", "LEVEL", "УРОВЕНЬ", "NIVEL"),
+                _ => item.Text
+            };
+        }
+
+        var modeItems = new[] { "Classic", "Survival", "Sprint (40 lines)", "Ultra (120s)", "Marathon" };
+        if (GameModeComboBox.Items.Count == modeItems.Length)
+        {
+            var translated = _uiLanguage switch
+            {
+                UiLanguage.Polish => new[] { "Klasyczny", "Survival", "Sprint (40 linii)", "Ultra (120s)", "Marathon" },
+                UiLanguage.German => new[] { "Klassisch", "Survival", "Sprint (40 Zeilen)", "Ultra (120s)", "Marathon" },
+                UiLanguage.Russian => new[] { "Классический", "Survival", "Спринт (40 линий)", "Ultra (120s)", "Marathon" },
+                UiLanguage.Spanish => new[] { "Clásico", "Survival", "Sprint (40 líneas)", "Ultra (120s)", "Marathon" },
+                _ => modeItems
+            };
+
+            for (var i = 0; i < GameModeComboBox.Items.Count; i++)
+            {
+                if (GameModeComboBox.Items[i] is ComboBoxItem item)
+                {
+                    item.Content = translated[i];
+                }
+            }
+        }
+
+        UpdateHud();
+    }
+
+    private static IEnumerable<T> FindVisualChildren<T>(DependencyObject depObj) where T : DependencyObject
+    {
+        if (depObj == null)
+        {
+            yield break;
+        }
+
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(depObj); i++)
+        {
+            var child = VisualTreeHelper.GetChild(depObj, i);
+            if (child is T typed)
+            {
+                yield return typed;
+            }
+
+            foreach (var childOfChild in FindVisualChildren<T>(child))
+            {
+                yield return childOfChild;
+            }
         }
     }
 
@@ -1727,7 +1854,7 @@ public partial class MainWindow : Window
         var current = new DirectoryInfo(AppContext.BaseDirectory);
         while (current is not null)
         {
-            var projectFile = IOPath.Combine(current.FullName, "Tetris.csproj");
+            var projectFile = Directory.GetFiles(current.FullName, "*.csproj").FirstOrDefault() ?? string.Empty;
             if (File.Exists(projectFile))
             {
                 return IOPath.Combine(current.FullName, "AdAssets");
@@ -1883,7 +2010,7 @@ public partial class MainWindow : Window
             var settings = SettingsPersistence.DeserializeOrDefault(json, CreateDefaultSettings());
 
             _isLoadingSettings = true;
-            NickTextBox.Text = string.IsNullOrWhiteSpace(settings.Nick) ? "Gracz" : settings.Nick;
+            NickTextBox.Text = string.IsNullOrWhiteSpace(settings.Nick) ? "Player" : settings.Nick;
             StartLevelComboBox.SelectedIndex = Math.Clamp(settings.StartLevelIndex, 0, 2);
             GameModeComboBox.SelectedIndex = Math.Clamp(settings.GameModeIndex, 0, 4);
             ThemeComboBox.SelectedIndex = Math.Clamp(settings.ThemeIndex, 0, 2);
@@ -1909,10 +2036,13 @@ public partial class MainWindow : Window
             _effectsEnabled = settings.EffectsEnabled == true;
             _lockParticlesEnabled = settings.LockParticlesEnabled == true;
             _adminPassword = string.IsNullOrWhiteSpace(settings.AdminPassword) ? DefaultAdminPassword : settings.AdminPassword;
-            AdminPasswordStatusText.Text = $"Hasło administratora ustawione (domyślne: {DefaultAdminPassword}).";
+            _uiLanguage = ParseLanguageCode(settings.LanguageCode);
+            LanguageComboBox.SelectedIndex = (int)_uiLanguage;
+            AdminPasswordStatusText.Text = $"Admin password set (default: {DefaultAdminPassword}).";
             ApplyControlSettingsToUi();
             SessionStatsCard.Visibility = _showSessionStats ? Visibility.Visible : Visibility.Collapsed;
             ApplyAudioSettingsUi();
+            ApplyLanguageToUi();
         }
         catch
         {
@@ -1964,7 +2094,8 @@ public partial class MainWindow : Window
             _musicEnabled,
             _effectsEnabled,
             _lockParticlesEnabled,
-            _adminPassword);
+            _adminPassword,
+            ToLanguageCode(_uiLanguage));
 
         var json = SettingsPersistence.Serialize(settings, JsonWriteOptions);
         File.WriteAllText(_settingsPath, json);
@@ -2181,7 +2312,7 @@ public partial class MainWindow : Window
         PlayEffect("buttonClick");
         var dialog = new OpenFileDialog
         {
-            Title = "Wybierz reklamę",
+            Title = "Select an image",
             Filter = "Obrazy (*.png;*.jpg;*.jpeg;*.bmp)|*.png;*.jpg;*.jpeg;*.bmp"
         };
 
@@ -2206,7 +2337,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Nie udało się dodać reklamy: {ex.Message}", "Błąd", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show($"Failed to add image: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -2303,7 +2434,7 @@ public partial class MainWindow : Window
         PlayEffect("buttonClick");
         if (AdListBox.SelectedItem is not AdEntry selected)
         {
-            MessageBox.Show("Najpierw wybierz grafikę z listy.", "Informacja", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show("Select an image from the list first.", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
@@ -2336,7 +2467,7 @@ public partial class MainWindow : Window
 
         if (panels == AdPanel.None)
         {
-            MessageBox.Show("Wybierz co najmniej jeden panel dla grafiki.", "Błąd", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show("Select at least one panel for this image.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
@@ -2417,7 +2548,7 @@ public partial class MainWindow : Window
     {
         PlayEffect("buttonClick");
         HighscoreManageHintText.Text = string.Empty;
-        HighscoreAuthStatusText.Text = _isHighscoreUnlocked ? "Tryb edycji aktywny." : "Tryb tylko podglądu. Zatwierdź hasło, aby edytować.";
+        HighscoreAuthStatusText.Text = _isHighscoreUnlocked ? "Edit mode active." : "Read-only mode. Confirm password to edit.";
         ShowStartMenuSection(StartMenuSection.Highscore);
     }
 
@@ -2450,7 +2581,7 @@ public partial class MainWindow : Window
             return true;
         }
 
-        HighscoreManageHintText.Text = "Najpierw zatwierdź hasło, aby zarządzać rekordami.";
+        HighscoreManageHintText.Text = "Confirm password first to manage records.";
         return false;
     }
 
@@ -2460,18 +2591,18 @@ public partial class MainWindow : Window
         if (HighscorePasswordBox.Password != _adminPassword)
         {
             _isHighscoreUnlocked = false;
-            HighscoreAuthStatusText.Text = "❌ Błędne hasło";
+            HighscoreAuthStatusText.Text = "❌ Wrong password";
             HighscoreAuthStatusText.Foreground = new SolidColorBrush(Color.FromRgb(252, 165, 165));
-            HighscoreManageHintText.Text = "Hasło niepoprawne. Edycja zablokowana.";
+            HighscoreManageHintText.Text = "Incorrect password. Editing locked.";
             RefreshHighScores();
             return;
         }
 
         _isHighscoreUnlocked = true;
         HighscorePasswordBox.Password = string.Empty;
-        HighscoreAuthStatusText.Text = "✅ Edycja odblokowana: możesz zmieniać nick lub usuwać rekordy.";
+        HighscoreAuthStatusText.Text = "✅ Editing unlocked: you can edit nicknames or delete records.";
         HighscoreAuthStatusText.Foreground = new SolidColorBrush(Color.FromRgb(147, 197, 253));
-        HighscoreManageHintText.Text = "Tryb edycji aktywny.";
+        HighscoreManageHintText.Text = "Edit mode active.";
         RefreshHighScores();
     }
 
@@ -2486,7 +2617,7 @@ public partial class MainWindow : Window
         var modeScores = GetHighScoresForMode(_selectedHighscoreMode);
         if (sender is not Button { Tag: int index } || index < 0 || index >= modeScores.Count)
         {
-            HighscoreManageHintText.Text = "Nie udało się usunąć rekordu.";
+            HighscoreManageHintText.Text = "Failed to delete record.";
             return;
         }
 
@@ -2494,7 +2625,7 @@ public partial class MainWindow : Window
         RefreshHighScores();
         SaveHighScores();
         UpdateHud();
-        HighscoreManageHintText.Text = "Rekord usunięty.";
+        HighscoreManageHintText.Text = "Record deleted.";
     }
 
     private void HighscoreEditNameButton_Click(object sender, RoutedEventArgs e)
@@ -2508,7 +2639,7 @@ public partial class MainWindow : Window
         var modeScores = GetHighScoresForMode(_selectedHighscoreMode);
         if (sender is not Button { Tag: int index } || index < 0 || index >= modeScores.Count)
         {
-            HighscoreManageHintText.Text = "Nie udało się edytować rekordu.";
+            HighscoreManageHintText.Text = "Failed to edit record.";
             return;
         }
 
@@ -2537,7 +2668,7 @@ public partial class MainWindow : Window
         var modeScores = GetHighScoresForMode(_selectedHighscoreMode);
         if (sender is not Button { Tag: int index } || index < 0 || index >= modeScores.Count)
         {
-            HighscoreManageHintText.Text = "Nie udało się zapisać nicku.";
+            HighscoreManageHintText.Text = "Failed to save nickname.";
             return;
         }
 
@@ -2552,7 +2683,7 @@ public partial class MainWindow : Window
         var newName = editor.Text.Trim();
         if (string.IsNullOrWhiteSpace(newName))
         {
-            HighscoreManageHintText.Text = "Nick nie może być pusty.";
+            HighscoreManageHintText.Text = "Nickname cannot be empty.";
             return;
         }
 
@@ -2621,7 +2752,7 @@ public partial class MainWindow : Window
 
         if (passwordBox.Password != _adminPassword)
         {
-            hintText.Text = "Błędne hasło";
+            hintText.Text = "Wrong password";
             return;
         }
 
@@ -2639,7 +2770,7 @@ public partial class MainWindow : Window
     private static GameSettings CreateDefaultSettings()
     {
         return new GameSettings(
-            "Gracz",
+            "Player",
             0,
             0,
             0,
@@ -2659,8 +2790,27 @@ public partial class MainWindow : Window
             true,
             true,
             true,
-            DefaultAdminPassword);
+            DefaultAdminPassword,
+            "en");
     }
+
+    private static UiLanguage ParseLanguageCode(string? code) => code?.ToLowerInvariant() switch
+    {
+        "pl" => UiLanguage.Polish,
+        "de" => UiLanguage.German,
+        "ru" => UiLanguage.Russian,
+        "es" => UiLanguage.Spanish,
+        _ => UiLanguage.English
+    };
+
+    private static string ToLanguageCode(UiLanguage language) => language switch
+    {
+        UiLanguage.Polish => "pl",
+        UiLanguage.German => "de",
+        UiLanguage.Russian => "ru",
+        UiLanguage.Spanish => "es",
+        _ => "en"
+    };
 
     private void ThemeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -2670,6 +2820,18 @@ public partial class MainWindow : Window
         }
 
         ApplyTheme();
+        SaveSettings();
+    }
+
+    private void LanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isLoadingSettings)
+        {
+            return;
+        }
+
+        _uiLanguage = (UiLanguage)Math.Clamp(LanguageComboBox.SelectedIndex, 0, 4);
+        ApplyLanguageToUi();
         SaveSettings();
     }
 
@@ -2724,14 +2886,14 @@ public partial class MainWindow : Window
         var newPassword = AdminPasswordSettingsBox.Password.Trim();
         if (newPassword.Length < 4)
         {
-            AdminPasswordStatusText.Text = "Hasło musi mieć co najmniej 4 znaki.";
+            AdminPasswordStatusText.Text = "Password must be at least 4 characters long.";
             AdminPasswordStatusText.Foreground = new SolidColorBrush(Color.FromRgb(252, 165, 165));
             return;
         }
 
         _adminPassword = newPassword;
         AdminPasswordSettingsBox.Password = string.Empty;
-        AdminPasswordStatusText.Text = "✅ Hasło administratora zostało zaktualizowane.";
+        AdminPasswordStatusText.Text = "✅ Administrator password updated.";
         AdminPasswordStatusText.Foreground = new SolidColorBrush(Color.FromRgb(147, 197, 253));
         SaveSettings();
     }
@@ -2833,11 +2995,11 @@ public partial class MainWindow : Window
         _piecesLocked = 0;
         _totalLockDelayMs = 0;
         _lockSamples = 0;
-        _tetrisLineClears = 0;
+        _quadLineClears = 0;
 
         DrawTrendChart();
         UpdateHud();
-        ExportStatusText.Text = "✅ Statystyki zostały zresetowane (historia + wykres + liczniki sesji).";
+        ExportStatusText.Text = "✅ Stats reset (history + chart + session counters).";
     }
 
     private void KeyBindingTextBox_GotFocus(object sender, RoutedEventArgs e)
@@ -2845,7 +3007,7 @@ public partial class MainWindow : Window
         if (sender is TextBox textBox)
         {
             textBox.SelectAll();
-            ExportStatusText.Text = "Naciśnij klawisz, aby przypisać sterowanie.";
+            ExportStatusText.Text = "Press a key to bind this control.";
         }
     }
 
@@ -2874,7 +3036,7 @@ public partial class MainWindow : Window
         var save = new SaveFileDialog
         {
             Filter = "CSV (*.csv)|*.csv",
-            FileName = $"tetris-session-stats-{DateTime.Now:yyyyMMdd-HHmm}.csv"
+            FileName = $"stackmaster-session-stats-{DateTime.Now:yyyyMMdd-HHmm}.csv"
         };
 
         if (save.ShowDialog() != true)
@@ -2890,7 +3052,7 @@ public partial class MainWindow : Window
         }
 
         File.WriteAllText(save.FileName, sb.ToString());
-        ExportStatusText.Text = $"✅ Zapisano CSV: {save.FileName}";
+        ExportStatusText.Text = $"✅ Saved CSV: {save.FileName}";
     }
 
     private void ExportStatsJsonButton_Click(object sender, RoutedEventArgs e)
@@ -2898,7 +3060,7 @@ public partial class MainWindow : Window
         var save = new SaveFileDialog
         {
             Filter = "JSON (*.json)|*.json",
-            FileName = $"tetris-session-stats-{DateTime.Now:yyyyMMdd-HHmm}.json"
+            FileName = $"stackmaster-session-stats-{DateTime.Now:yyyyMMdd-HHmm}.json"
         };
 
         if (save.ShowDialog() != true)
@@ -2908,7 +3070,7 @@ public partial class MainWindow : Window
 
         var json = JsonSerializer.Serialize(_sessionHistory, JsonWriteOptions);
         File.WriteAllText(save.FileName, json);
-        ExportStatusText.Text = $"✅ Zapisano JSON: {save.FileName}";
+        ExportStatusText.Text = $"✅ Saved JSON: {save.FileName}";
     }
 
     private void ExportHighscoresCsvButton_Click(object sender, RoutedEventArgs e)
@@ -2916,7 +3078,7 @@ public partial class MainWindow : Window
         var save = new SaveFileDialog
         {
             Filter = "CSV (*.csv)|*.csv",
-            FileName = $"tetris-highscores-{DateTime.Now:yyyyMMdd-HHmm}.csv"
+            FileName = $"stackmaster-highscores-{DateTime.Now:yyyyMMdd-HHmm}.csv"
         };
 
         if (save.ShowDialog() != true)
@@ -2936,7 +3098,7 @@ public partial class MainWindow : Window
         }
 
         File.WriteAllText(save.FileName, sb.ToString());
-        ExportStatusText.Text = $"✅ Zapisano rekordy CSV: {save.FileName}";
+        ExportStatusText.Text = $"✅ Saved highscores CSV: {save.FileName}";
     }
 
     private void LoadOnboardingState()
@@ -2970,7 +3132,7 @@ public partial class MainWindow : Window
         {
             _tutorialStepIndex = 0;
             TutorialStepText.Text = TutorialSteps[_tutorialStepIndex];
-            TutorialNextButton.Content = "Dalej";
+            TutorialNextButton.Content = "Next";
             TutorialOverlay.Visibility = Visibility.Visible;
             return;
         }
@@ -2995,7 +3157,7 @@ public partial class MainWindow : Window
         }
 
         TutorialStepText.Text = TutorialSteps[_tutorialStepIndex];
-        TutorialNextButton.Content = _tutorialStepIndex == TutorialSteps.Length - 1 ? "Zakończ" : "Dalej";
+        TutorialNextButton.Content = _tutorialStepIndex == TutorialSteps.Length - 1 ? "Finish" : "Next";
     }
 
     private void SkipTutorialButton_Click(object sender, RoutedEventArgs e)
